@@ -37,39 +37,39 @@ export default function CharacterView() {
   const xpNext = xpForLevel(char.level + 1);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
+    <div className="flex-1 overflow-y-auto p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-2">
+      <div className="flex items-center gap-3 md:gap-4 mb-2">
         <button onClick={() => navigate('/')} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
           <span className="sr-only">BACK</span>
         </button>
-        <div className="flex-1">
-          <h1 className="font-display text-xl text-foreground">{char.name}</h1>
-          <p className="text-[11px] text-muted-foreground uppercase tracking-widest">
+        <div className="flex-1 min-w-0">
+          <h1 className="font-display text-base md:text-xl text-foreground truncate">{char.name}</h1>
+          <p className="text-[10px] md:text-[11px] text-muted-foreground uppercase tracking-widest">
             LVL {char.level} {char.race} {char.class}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 md:gap-2 shrink-0">
           <motion.button
             onClick={() => setEditing(!editing)}
-            className="tactical-card py-2 px-3 flex items-center gap-2 text-[10px] uppercase tracking-widest"
+            className="tactical-card py-1.5 md:py-2 px-2 md:px-3 flex items-center gap-1 md:gap-2 text-[9px] md:text-[10px] uppercase tracking-widest"
             whileTap={{ scale: 0.98 }}
           >
-            {editing ? <><Save className="w-3 h-3" /> DONE</> : <><Edit2 className="w-3 h-3" /> EDIT</>}
+            {editing ? <><Save className="w-3 h-3" /> <span className="hidden sm:inline">DONE</span></> : <><Edit2 className="w-3 h-3" /> <span className="hidden sm:inline">EDIT</span></>}
           </motion.button>
           <motion.button
             onClick={handleDelete}
-            className="tactical-card py-2 px-3 flex items-center gap-2 text-[10px] uppercase tracking-widest text-destructive"
+            className="tactical-card py-1.5 md:py-2 px-2 md:px-3 flex items-center gap-1 md:gap-2 text-[9px] md:text-[10px] uppercase tracking-widest text-destructive"
             whileTap={{ scale: 0.98 }}
           >
-            <Trash2 className="w-3 h-3" /> DELETE
+            <Trash2 className="w-3 h-3" /> <span className="hidden sm:inline">DELETE</span>
           </motion.button>
         </div>
       </div>
 
       {/* XP Bar */}
-      <div className="h-[2px] w-full bg-muted mb-6 overflow-hidden rounded-sm">
+      <div className="h-[2px] w-full bg-muted mb-4 md:mb-6 overflow-hidden rounded-sm">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: xpNext > 0 ? `${(char.xp / xpNext) * 100}%` : '100%' }}
@@ -78,10 +78,10 @@ export default function CharacterView() {
         />
       </div>
 
-      {/* Core Stats Grid */}
-      <div className="grid grid-cols-12 gap-1 mb-6">
-        {/* Left: Abilities */}
-        <div className="col-span-4">
+      {/* Core Stats Grid - stacks on mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-1 mb-4 md:mb-6">
+        {/* Abilities */}
+        <div className="md:col-span-4">
           <p className="tactical-header mb-2">ABILITIES</p>
           <div className="grid grid-cols-3 gap-1">
             {char.abilities.map(ab => (
@@ -94,7 +94,6 @@ export default function CharacterView() {
                     ...char,
                     abilities: char.abilities.map(a => a.name === ab.name ? { ...a, score } : a)
                   };
-                  // Recalc AC
                   const dexScore = updated.abilities.find(a => a.name === 'DEX')?.score ?? 10;
                   updated.ac = 10 + getModifier(dexScore);
                   save(updated);
@@ -104,8 +103,8 @@ export default function CharacterView() {
           </div>
         </div>
 
-        {/* Center: Combat */}
-        <div className="col-span-4 space-y-1">
+        {/* Combat */}
+        <div className="md:col-span-4 space-y-1">
           <p className="tactical-header mb-2">COMBAT</p>
           <div className="tactical-card">
             <HpBar current={char.hp} max={char.maxHp} />
@@ -128,22 +127,22 @@ export default function CharacterView() {
           </div>
           <div className="grid grid-cols-3 gap-1">
             <div className="tactical-card text-center">
-              <span className="font-mono text-2xl tabular-nums text-foreground">{char.ac}</span>
+              <span className="font-mono text-xl md:text-2xl tabular-nums text-foreground">{char.ac}</span>
               <p className="stat-label">AC</p>
             </div>
             <div className="tactical-card text-center">
-              <span className="font-mono text-2xl tabular-nums text-foreground">{char.speed}</span>
+              <span className="font-mono text-xl md:text-2xl tabular-nums text-foreground">{char.speed}</span>
               <p className="stat-label">SPEED</p>
             </div>
             <div className="tactical-card text-center">
-              <span className="font-mono text-2xl tabular-nums text-foreground">{char.level}</span>
+              <span className="font-mono text-xl md:text-2xl tabular-nums text-foreground">{char.level}</span>
               <p className="stat-label">LEVEL</p>
             </div>
           </div>
         </div>
 
-        {/* Right: Quick Info */}
-        <div className="col-span-4">
+        {/* Info */}
+        <div className="md:col-span-4">
           <p className="tactical-header mb-2">INFO</p>
           <div className="tactical-card space-y-2">
             <div className="flex justify-between">

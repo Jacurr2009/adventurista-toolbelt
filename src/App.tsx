@@ -20,13 +20,15 @@ const App = () => (
       <BrowserRouter>
         <div className="flex min-h-screen bg-background">
           <AppSidebar />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/create" element={<CreateCharacter />} />
-            <Route path="/character/:id" element={<CharacterView />} />
-            <Route path="/resources" element={<Resources />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <main className="flex-1 min-w-0 pt-12 md:pt-0">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/create" element={<CreateCharacter />} />
+              <Route path="/character/:id" element={<CharacterView />} />
+              <Route path="/resources" element={<Resources />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
         </div>
       </BrowserRouter>
     </TooltipProvider>
