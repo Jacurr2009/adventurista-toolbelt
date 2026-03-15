@@ -54,24 +54,24 @@ export default function CreateCharacter() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <h1 className="font-display text-lg mb-6 text-foreground">INITIATE CHARACTER BUILD.</h1>
+    <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <h1 className="font-display text-base md:text-lg mb-4 md:mb-6 text-foreground">INITIATE CHARACTER BUILD.</h1>
 
       {/* Identity */}
-      <section className="mb-6">
+      <section className="mb-4 md:mb-6">
         <p className="tactical-header mb-3">IDENTITY</p>
-        <div className="grid grid-cols-12 gap-1">
-          <div className="col-span-6 tactical-card">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-1">
+          <div className="lg:col-span-6 tactical-card">
             <label className="stat-label block mb-2">NAME</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Enter character name..."
-              className="w-full bg-transparent font-display text-lg text-foreground outline-none border-b border-border pb-1 placeholder:text-muted-foreground/50"
+              className="w-full bg-transparent font-display text-base md:text-lg text-foreground outline-none border-b border-border pb-1 placeholder:text-muted-foreground/50"
             />
           </div>
-          <div className="col-span-2 tactical-card">
+          <div className="lg:col-span-2 tactical-card">
             <label className="stat-label block mb-2">RACE</label>
             <select
               value={race}
@@ -81,7 +81,7 @@ export default function CreateCharacter() {
               {DND_RACES.map(r => <option key={r} value={r} className="bg-card">{r}</option>)}
             </select>
           </div>
-          <div className="col-span-2 tactical-card">
+          <div className="lg:col-span-2 tactical-card">
             <label className="stat-label block mb-2">CLASS</label>
             <select
               value={dndClass}
@@ -91,7 +91,7 @@ export default function CreateCharacter() {
               {DND_CLASSES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
             </select>
           </div>
-          <div className="col-span-2 tactical-card">
+          <div className="lg:col-span-2 tactical-card">
             <label className="stat-label block mb-2">LEVEL</label>
             <div className="flex items-center gap-2">
               <button onClick={() => setLevel(Math.max(1, level - 1))} className="text-muted-foreground hover:text-foreground font-mono">−</button>
@@ -103,28 +103,28 @@ export default function CreateCharacter() {
       </section>
 
       {/* Computed Stats */}
-      <section className="mb-6">
+      <section className="mb-4 md:mb-6">
         <p className="tactical-header mb-3">COMPUTED</p>
-        <div className="grid grid-cols-12 gap-1">
-          <div className="col-span-4 tactical-card flex items-center justify-between">
+        <div className="grid grid-cols-3 gap-1">
+          <div className="tactical-card flex items-center justify-between">
             <span className="stat-label">MAX HP</span>
-            <span className="font-mono text-xl tabular-nums text-foreground">{Math.max(1, maxHp)}</span>
+            <span className="font-mono text-lg md:text-xl tabular-nums text-foreground">{Math.max(1, maxHp)}</span>
           </div>
-          <div className="col-span-4 tactical-card flex items-center justify-between">
-            <span className="stat-label">ARMOR CLASS</span>
-            <span className="font-mono text-xl tabular-nums text-foreground">{baseAc}</span>
+          <div className="tactical-card flex items-center justify-between">
+            <span className="stat-label">AC</span>
+            <span className="font-mono text-lg md:text-xl tabular-nums text-foreground">{baseAc}</span>
           </div>
-          <div className="col-span-4 tactical-card flex items-center justify-between">
+          <div className="tactical-card flex items-center justify-between">
             <span className="stat-label">HIT DIE</span>
-            <span className="font-mono text-xl tabular-nums text-foreground">d{hitDie}</span>
+            <span className="font-mono text-lg md:text-xl tabular-nums text-foreground">d{hitDie}</span>
           </div>
         </div>
       </section>
 
       {/* Ability Scores */}
-      <section className="mb-6">
+      <section className="mb-4 md:mb-6">
         <p className="tactical-header mb-3">ABILITY SCORES</p>
-        <div className="grid grid-cols-6 gap-1">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
           {abilities.map(ab => (
             <StatBlock
               key={ab.name}
@@ -137,7 +137,7 @@ export default function CreateCharacter() {
       </section>
 
       {/* Equipment */}
-      <section className="mb-6">
+      <section className="mb-4 md:mb-6">
         <div className="flex items-center justify-between mb-3">
           <p className="tactical-header">EQUIPMENT</p>
           <motion.button

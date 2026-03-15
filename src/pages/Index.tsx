@@ -14,7 +14,7 @@ export default function CharacterList() {
   }, []);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
+    <div className="flex-1 overflow-y-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-display text-lg text-foreground">CHARACTER ROSTER</h1>
