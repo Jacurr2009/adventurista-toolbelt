@@ -40,7 +40,7 @@ export function EquipmentDrawer({ open, onClose, onAdd, existingIds }: Equipment
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
-            className="fixed right-0 top-0 h-full w-[360px] bg-card border-l border-border z-50 flex flex-col"
+            className="fixed right-0 top-0 h-full w-full sm:w-[360px] bg-card border-l border-border z-50 flex flex-col"
           >
             <div className="flex items-center justify-between p-4 border-b border-border">
               <span className="tactical-header">EQUIPMENT CATALOG</span>
