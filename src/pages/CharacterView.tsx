@@ -16,6 +16,18 @@ export default function CharacterView() {
   const [char, setChar] = useState<Character | null>(null);
   const [editing, setEditing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const iconInputRef = useRef<HTMLInputElement>(null);
+
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !char) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Max 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      save({ ...char, icon: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const found = getCharacters().find(c => c.id === id);
