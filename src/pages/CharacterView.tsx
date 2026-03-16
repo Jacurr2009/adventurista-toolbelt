@@ -7,7 +7,8 @@ import { StatBlock } from '@/components/StatBlock';
 import { HpBar } from '@/components/HpBar';
 import { EquipmentRow } from '@/components/EquipmentRow';
 import { EquipmentDrawer } from '@/components/EquipmentDrawer';
-import { ArrowLeft, Plus, Trash2, Edit2, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit2, Save, Camera } from 'lucide-react';
+import { useRef } from 'react';
 
 export default function CharacterView() {
   const { id } = useParams();
