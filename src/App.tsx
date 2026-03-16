@@ -28,6 +28,8 @@ const App = () => (
               <Route path="/create" element={<CreateCharacter />} />
               <Route path="/character/:id" element={<CharacterView />} />
               <Route path="/resources" element={<Resources />} />
+              <Route path="/dice" element={<DiceRoller />} />
+              <Route path="/maps" element={<Maps />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

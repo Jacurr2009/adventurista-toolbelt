@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, BookOpen, Menu, X } from 'lucide-react';
+import { Users, Plus, BookOpen, Menu, X, Dices, Map } from 'lucide-react';
 
 export function AppSidebar() {
   const location = useLocation();
@@ -10,6 +10,8 @@ export function AppSidebar() {
   const links = [
     { to: '/', label: 'CHARACTERS', icon: Users },
     { to: '/create', label: 'NEW BUILD', icon: Plus },
+    { to: '/dice', label: 'DICE ROLLER', icon: Dices },
+    { to: '/maps', label: 'MAPS', icon: Map },
     { to: '/resources', label: 'RESOURCES', icon: BookOpen },
   ];
 
