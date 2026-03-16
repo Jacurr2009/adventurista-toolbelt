@@ -20,11 +20,20 @@ export function CharacterCard({ character }: CharacterCardProps) {
         transition={{ duration: 0.15 }}
       >
         <div className="flex items-start justify-between mb-3">
-          <div>
-            <h3 className="font-display text-base text-foreground">{character.name}</h3>
-            <p className="text-[11px] text-muted-foreground uppercase tracking-widest">
-              LVL {character.level} {character.race} {character.class}
-            </p>
+          <div className="flex items-center gap-3">
+            {character.icon ? (
+              <img src={character.icon} className="w-10 h-10 rounded-full object-cover border border-border shrink-0" alt="" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <span className="font-mono text-sm text-muted-foreground">{character.name[0]}</span>
+              </div>
+            )}
+            <div>
+              <h3 className="font-display text-base text-foreground">{character.name}</h3>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-widest">
+                LVL {character.level} {character.race} {character.class}
+              </p>
+            </div>
           </div>
           <div className="text-right">
             <span className="font-mono text-2xl tabular-nums text-foreground">{character.ac}</span>

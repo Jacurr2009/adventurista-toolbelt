@@ -34,6 +34,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
+          <DiceFloatingButton />
         </div>
       </BrowserRouter>
     </TooltipProvider>
