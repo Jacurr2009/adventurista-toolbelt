@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/AppSidebar";
+import { DiceFloatingButton } from "@/components/DiceFloatingButton";
 import Index from "./pages/Index";
 import CreateCharacter from "./pages/CreateCharacter";
 import CharacterView from "./pages/CharacterView";
