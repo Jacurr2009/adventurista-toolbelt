@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import CreateCharacter from "./pages/CreateCharacter";
 import CharacterView from "./pages/CharacterView";
 import Resources from "./pages/Resources";
+import DiceRoller from "./pages/DiceRoller";
+import Maps from "./pages/Maps";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
