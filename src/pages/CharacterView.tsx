@@ -7,7 +7,8 @@ import { StatBlock } from '@/components/StatBlock';
 import { HpBar } from '@/components/HpBar';
 import { EquipmentRow } from '@/components/EquipmentRow';
 import { EquipmentDrawer } from '@/components/EquipmentDrawer';
-import { ArrowLeft, Plus, Trash2, Edit2, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit2, Save, Camera } from 'lucide-react';
+import { useRef } from 'react';
 
 export default function CharacterView() {
   const { id } = useParams();
@@ -15,6 +16,18 @@ export default function CharacterView() {
   const [char, setChar] = useState<Character | null>(null);
   const [editing, setEditing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const iconInputRef = useRef<HTMLInputElement>(null);
+
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !char) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Max 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      save({ ...char, icon: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const found = getCharacters().find(c => c.id === id);
@@ -44,6 +57,25 @@ export default function CharacterView() {
           <ArrowLeft className="w-4 h-4" />
           <span className="sr-only">BACK</span>
         </button>
+        {/* Avatar */}
+        <div className="relative shrink-0">
+          {char.icon ? (
+            <img src={char.icon} className="w-12 h-12 rounded-full object-cover border border-border" alt="" />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+              <span className="font-mono text-lg text-muted-foreground">{char.name[0]}</span>
+            </div>
+          )}
+          {editing && (
+            <button
+              onClick={() => iconInputRef.current?.click()}
+              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-foreground text-background flex items-center justify-center"
+            >
+              <Camera className="w-3 h-3" />
+            </button>
+          )}
+          <input ref={iconInputRef} type="file" accept="image/*" onChange={handleIconUpload} className="hidden" />
+        </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-base md:text-xl text-foreground truncate">{char.name}</h1>
           <p className="text-[10px] md:text-[11px] text-muted-foreground uppercase tracking-widest">

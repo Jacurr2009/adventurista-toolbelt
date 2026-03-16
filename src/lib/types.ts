@@ -36,6 +36,7 @@ export interface Character {
   speed: number;
   abilities: AbilityScore[];
   equipment: EquipmentItem[];
+  icon?: string; // base64 data URL for character portrait
   createdAt: string;
 }
 
