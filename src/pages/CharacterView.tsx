@@ -126,8 +126,7 @@ export default function CharacterView() {
                     ...char,
                     abilities: char.abilities.map(a => a.name === ab.name ? { ...a, score } : a)
                   };
-                  const dexScore = updated.abilities.find(a => a.name === 'DEX')?.score ?? 10;
-                  updated.ac = 10 + getModifier(dexScore);
+                  updated.ac = getEquippedAC(updated);
                   save(updated);
                 }}
               />

@@ -341,6 +341,18 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               <button onClick={() => setGridSize(s => Math.min(100, s + 5))} className="tactical-card !p-1 px-1">
                 <Plus className="w-3 h-3" />
               </button>
+              {isDM && (
+                <>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <button onClick={() => setFtPerCell(f => Math.max(5, f - 5))} className="tactical-card !p-1 px-1">
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="font-mono text-[9px] text-muted-foreground w-10 text-center">{ftPerCell}ft</span>
+                  <button onClick={() => setFtPerCell(f => Math.min(30, f + 5))} className="tactical-card !p-1 px-1">
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </>
+              )}
             </div>
           )}
 
