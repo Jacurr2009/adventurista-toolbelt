@@ -37,6 +37,7 @@ const MONSTER_PRESETS = [
 ];
 
 const DEFAULT_GRID_SIZE = 40;
+const DEFAULT_FT_PER_CELL = 5;
 
 export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const { isDM } = useGame();
@@ -53,8 +54,10 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const [showGrid, setShowGrid] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
   const [gridSize, setGridSize] = useState(DEFAULT_GRID_SIZE);
+  const [ftPerCell, setFtPerCell] = useState(DEFAULT_FT_PER_CELL);
+  const [combatMovementUsed, setCombatMovementUsed] = useState(0);
   const [showFog, setShowFog] = useState(false);
   const [fogCells, setFogCells] = useState<Set<string>>(() => {
     const saved = localStorage.getItem(`map-fog-${mapId}`);
@@ -192,7 +195,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setDraggingToken(null);
   };
 
-  // Canvas click for combat movement
+  // Canvas click for combat movement (enforces movement limit)
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!combatMoving || !currentTurnId) return;
     const rect = containerRef.current?.getBoundingClientRect();
@@ -206,6 +209,26 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     if (showGrid) {
       newX = Math.round(newX / gridSize) * gridSize + gridSize / 2;
       newY = Math.round(newY / gridSize) * gridSize + gridSize / 2;
+    }
+
+    // Calculate distance in cells
+    const currentToken = tokens.find(t => t.id === currentTurnId);
+    if (currentToken) {
+      const dx = Math.abs(newX - currentToken.x) / gridSize;
+      const dy = Math.abs(newY - currentToken.y) / gridSize;
+      const cellsMoved = Math.max(dx, dy); // diagonal = 1 cell (D&D optional)
+      const ftMoved = Math.round(cellsMoved) * ftPerCell;
+      
+      const charData = characters.current.find(c => c.name === currentToken.label);
+      const maxMovement = charData?.speed || 30;
+      const remaining = maxMovement - combatMovementUsed;
+      
+      if (ftMoved > remaining) {
+        // Can't move that far
+        return;
+      }
+      
+      setCombatMovementUsed(prev => prev + ftMoved);
     }
 
     moveToken(currentTurnId, newX, newY);
@@ -318,6 +341,18 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               <button onClick={() => setGridSize(s => Math.min(100, s + 5))} className="tactical-card !p-1 px-1">
                 <Plus className="w-3 h-3" />
               </button>
+              {isDM && (
+                <>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <button onClick={() => setFtPerCell(f => Math.max(5, f - 5))} className="tactical-card !p-1 px-1">
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="font-mono text-[9px] text-muted-foreground w-10 text-center">{ftPerCell}ft</span>
+                  <button onClick={() => setFtPerCell(f => Math.min(30, f + 5))} className="tactical-card !p-1 px-1">
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -626,10 +661,16 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             token={currentTurnToken}
             allTokens={tokens}
             gridSize={gridSize}
+            ftPerCell={ftPerCell}
             onMoveToken={moveToken}
             onDamageToken={damageToken}
-            onEndTurn={handleNextTurn}
+            onEndTurn={() => {
+              setCombatMovementUsed(0);
+              handleNextTurn();
+            }}
             isCurrentTurn={true}
+            movementUsed={combatMovementUsed}
+            onSetMovementUsed={setCombatMovementUsed}
           />
         )}
       </div>

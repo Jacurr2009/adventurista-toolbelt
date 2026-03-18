@@ -21,6 +21,12 @@ export interface EquipmentItem {
   quantity: number;
   equipped: boolean;
   category: 'weapon' | 'armor' | 'gear' | 'consumable';
+  // Combat stats
+  attackBonus?: number;    // bonus to attack roll
+  damageBonus?: number;    // bonus to damage roll
+  damageDie?: number;      // e.g. 8 = 1d8
+  acBonus?: number;        // bonus to AC when equipped
+  properties?: string[];   // e.g. ['finesse', 'light', 'two-handed']
 }
 
 export interface Character {
@@ -81,25 +87,53 @@ export const CLASS_HIT_DIE: Record<DndClass, number> = {
   Rogue: 8, Sorcerer: 6, Warlock: 8, Wizard: 6,
 };
 
+export function getEquippedAC(char: Character): number {
+  const dex = char.abilities.find(a => a.name === 'DEX');
+  const dexMod = dex ? getModifier(dex.score) : 0;
+  let baseAC = 10 + dexMod;
+  const equippedArmor = char.equipment.filter(e => e.equipped && e.category === 'armor');
+  for (const armor of equippedArmor) {
+    if (armor.acBonus) baseAC += armor.acBonus;
+  }
+  return baseAC;
+}
+
+export function getEquippedWeapons(char: Character): EquipmentItem[] {
+  return char.equipment.filter(e => e.equipped && e.category === 'weapon');
+}
+
 export const EQUIPMENT_CATALOG: Omit<EquipmentItem, 'id' | 'equipped'>[] = [
-  { name: 'Longsword', weight: 3, quantity: 1, category: 'weapon' },
-  { name: 'Shortbow', weight: 2, quantity: 1, category: 'weapon' },
-  { name: 'Dagger', weight: 1, quantity: 1, category: 'weapon' },
-  { name: 'Greataxe', weight: 7, quantity: 1, category: 'weapon' },
-  { name: 'Handaxe', weight: 2, quantity: 1, category: 'weapon' },
-  { name: 'Javelin', weight: 2, quantity: 1, category: 'weapon' },
-  { name: 'Mace', weight: 4, quantity: 1, category: 'weapon' },
-  { name: 'Quarterstaff', weight: 4, quantity: 1, category: 'weapon' },
-  { name: 'Chain Mail', weight: 55, quantity: 1, category: 'armor' },
-  { name: 'Leather Armor', weight: 10, quantity: 1, category: 'armor' },
-  { name: 'Scale Mail', weight: 45, quantity: 1, category: 'armor' },
-  { name: 'Shield', weight: 6, quantity: 1, category: 'armor' },
-  { name: 'Studded Leather', weight: 13, quantity: 1, category: 'armor' },
+  // Weapons — damageDie is the die sides, attackBonus/damageBonus default to 0
+  { name: 'Longsword', weight: 3, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['versatile'] },
+  { name: 'Shortbow', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['ranged', 'two-handed'] },
+  { name: 'Dagger', weight: 1, quantity: 1, category: 'weapon', damageDie: 4, attackBonus: 0, damageBonus: 0, properties: ['finesse', 'light', 'thrown'] },
+  { name: 'Greataxe', weight: 7, quantity: 1, category: 'weapon', damageDie: 12, attackBonus: 0, damageBonus: 0, properties: ['heavy', 'two-handed'] },
+  { name: 'Handaxe', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['light', 'thrown'] },
+  { name: 'Javelin', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['thrown'] },
+  { name: 'Mace', weight: 4, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0 },
+  { name: 'Quarterstaff', weight: 4, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['versatile'] },
+  { name: 'Rapier', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['finesse'] },
+  { name: 'Greatsword', weight: 6, quantity: 1, category: 'weapon', damageDie: 12, attackBonus: 0, damageBonus: 0, properties: ['heavy', 'two-handed'] },
+  { name: 'Light Crossbow', weight: 5, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['ranged', 'two-handed'] },
+  { name: 'Warhammer', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['versatile'] },
+
+  // Armor — acBonus stacks on base 10+DEX
+  { name: 'Chain Mail', weight: 55, quantity: 1, category: 'armor', acBonus: 6, properties: ['heavy'] },
+  { name: 'Leather Armor', weight: 10, quantity: 1, category: 'armor', acBonus: 1, properties: ['light'] },
+  { name: 'Scale Mail', weight: 45, quantity: 1, category: 'armor', acBonus: 4, properties: ['medium'] },
+  { name: 'Shield', weight: 6, quantity: 1, category: 'armor', acBonus: 2 },
+  { name: 'Studded Leather', weight: 13, quantity: 1, category: 'armor', acBonus: 2, properties: ['light'] },
+  { name: 'Half Plate', weight: 40, quantity: 1, category: 'armor', acBonus: 5, properties: ['medium'] },
+  { name: 'Plate', weight: 65, quantity: 1, category: 'armor', acBonus: 8, properties: ['heavy'] },
+
+  // Gear
   { name: 'Backpack', weight: 5, quantity: 1, category: 'gear' },
   { name: 'Rope (50 ft)', weight: 10, quantity: 1, category: 'gear' },
   { name: 'Torch', weight: 1, quantity: 5, category: 'gear' },
   { name: 'Tinderbox', weight: 1, quantity: 1, category: 'gear' },
+
+  // Consumables
   { name: 'Rations (1 day)', weight: 2, quantity: 5, category: 'consumable' },
-  { name: 'Healing Potion', weight: 0.5, quantity: 1, category: 'consumable' },
+  { name: 'Healing Potion', weight: 0.5, quantity: 1, category: 'consumable', damageDie: 4, damageBonus: 4, properties: ['healing'] },
   { name: 'Antitoxin', weight: 0, quantity: 1, category: 'consumable' },
 ];

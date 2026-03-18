@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Character, formatModifier, getModifier, xpForLevel } from '@/lib/types';
+import { Character, formatModifier, getModifier, xpForLevel, getEquippedAC } from '@/lib/types';
 import { getCharacters, updateCharacter, deleteCharacter } from '@/lib/store';
 import { StatBlock } from '@/components/StatBlock';
 import { HpBar } from '@/components/HpBar';
@@ -126,8 +126,7 @@ export default function CharacterView() {
                     ...char,
                     abilities: char.abilities.map(a => a.name === ab.name ? { ...a, score } : a)
                   };
-                  const dexScore = updated.abilities.find(a => a.name === 'DEX')?.score ?? 10;
-                  updated.ac = 10 + getModifier(dexScore);
+                  updated.ac = getEquippedAC(updated);
                   save(updated);
                 }}
               />
@@ -227,7 +226,9 @@ export default function CharacterView() {
                 item={item}
                 editable={editing}
                 onToggleEquip={id => {
-                  save({ ...char, equipment: char.equipment.map(i => i.id === id ? { ...i, equipped: !i.equipped } : i) });
+                  const updated = { ...char, equipment: char.equipment.map(i => i.id === id ? { ...i, equipped: !i.equipped } : i) };
+                  updated.ac = getEquippedAC(updated);
+                  save(updated);
                 }}
                 onRemove={id => {
                   save({ ...char, equipment: char.equipment.filter(i => i.id !== id) });

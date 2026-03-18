@@ -16,7 +16,17 @@ export function EquipmentRow({ item, onToggleEquip, onRemove, editable }: Equipm
       whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
     >
       <span className="text-muted-foreground w-8 text-right tabular-nums">{item.quantity}×</span>
-      <span className="flex-1 text-foreground">{item.name}</span>
+      <span className="flex-1 text-foreground">
+        {item.name}
+        {item.damageDie && item.category === 'weapon' && (
+          <span className="ml-1 text-[9px] text-muted-foreground">
+            (1d{item.damageDie}{(item.damageBonus || 0) > 0 ? `+${item.damageBonus}` : ''})
+          </span>
+        )}
+        {item.acBonus && item.category === 'armor' && (
+          <span className="ml-1 text-[9px] text-muted-foreground">(+{item.acBonus} AC)</span>
+        )}
+      </span>
       <span className="text-muted-foreground w-16 text-right tabular-nums">{item.weight} lb</span>
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground w-20">{item.category}</span>
       {editable && (
