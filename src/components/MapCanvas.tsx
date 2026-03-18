@@ -233,7 +233,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       const remaining = maxMovement - combatMovementUsed;
       
       if (ftMoved > remaining) {
-        // Can't move that far
         return;
       }
       
@@ -241,7 +240,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     }
 
     moveToken(currentTurnId, newX, newY);
-    setCombatMoving(false);
+    // Don't exit move mode - allow continued movement until limit reached
   };
 
   const moveToken = (tokenId: string, newX: number, newY: number) => {
