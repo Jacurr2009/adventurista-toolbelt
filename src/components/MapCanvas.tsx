@@ -152,6 +152,15 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     const token = tokens.find(t => t.id === tokenId);
     if (!token) return;
 
+    // Players can only interact with character tokens
+    if (!isDM && token.type === 'monster') return;
+
+    // During combat, disable free dragging (use click-to-move instead)
+    if (combatActive) {
+      setSelectedToken(tokenId);
+      return;
+    }
+
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -224,7 +233,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       const remaining = maxMovement - combatMovementUsed;
       
       if (ftMoved > remaining) {
-        // Can't move that far
         return;
       }
       
@@ -232,7 +240,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     }
 
     moveToken(currentTurnId, newX, newY);
-    setCombatMoving(false);
+    // Don't exit move mode - allow continued movement until limit reached
   };
 
   const moveToken = (tokenId: string, newX: number, newY: number) => {
@@ -666,11 +674,14 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             onDamageToken={damageToken}
             onEndTurn={() => {
               setCombatMovementUsed(0);
+              setCombatMoving(false);
               handleNextTurn();
             }}
             isCurrentTurn={true}
             movementUsed={combatMovementUsed}
             onSetMovementUsed={setCombatMovementUsed}
+            onSetCombatMoving={setCombatMoving}
+            combatMoving={combatMoving}
           />
         )}
       </div>

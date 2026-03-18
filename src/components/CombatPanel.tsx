@@ -16,6 +16,8 @@ interface CombatPanelProps {
   isCurrentTurn: boolean;
   movementUsed: number;
   onSetMovementUsed: (ft: number) => void;
+  onSetCombatMoving: (moving: boolean) => void;
+  combatMoving: boolean;
 }
 
 interface AttackResult {
@@ -40,6 +42,8 @@ export function CombatPanel({
   isCurrentTurn,
   movementUsed,
   onSetMovementUsed,
+  onSetCombatMoving,
+  combatMoving,
 }: CombatPanelProps) {
   const [mode, setMode] = useState<'idle' | 'moving' | 'attacking'>('idle');
   const [hasAttacked, setHasAttacked] = useState(false);
@@ -174,14 +178,18 @@ export function CombatPanel({
       {/* Actions */}
       <div className="p-2 flex flex-col gap-1">
         <button
-          onClick={() => setMode(mode === 'moving' ? 'idle' : 'moving')}
+          onClick={() => {
+            const newMode = mode === 'moving' ? 'idle' : 'moving';
+            setMode(newMode);
+            onSetCombatMoving(newMode === 'moving');
+          }}
           disabled={remainingFt <= 0}
           className={`tactical-card !p-2 flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold transition-colors ${
-            mode === 'moving' ? 'border-secondary text-secondary' : ''
+            combatMoving ? 'border-secondary text-secondary' : ''
           } disabled:opacity-30`}
         >
           <Footprints className="w-3 h-3" />
-          {mode === 'moving' ? 'Click map to move' : `Move (${remainingFt}ft left)`}
+          {combatMoving ? 'Click map to move' : `Move (${remainingFt}ft left)`}
         </button>
 
         {/* Attack with weapon selection */}
@@ -320,6 +328,7 @@ export function CombatPanel({
             setHasAttacked(false);
             setLastAttack(null);
             setSelectedWeapon(null);
+            onSetCombatMoving(false);
             onEndTurn();
           }}
           className="tactical-card !p-2 flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold border-muted-foreground/30 hover:border-foreground"
