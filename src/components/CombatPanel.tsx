@@ -16,6 +16,8 @@ interface CombatPanelProps {
   isCurrentTurn: boolean;
   movementUsed: number;
   onSetMovementUsed: (ft: number) => void;
+  onSetCombatMoving: (moving: boolean) => void;
+  combatMoving: boolean;
 }
 
 interface AttackResult {
