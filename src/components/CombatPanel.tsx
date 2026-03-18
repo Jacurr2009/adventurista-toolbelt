@@ -328,6 +328,7 @@ export function CombatPanel({
             setHasAttacked(false);
             setLastAttack(null);
             setSelectedWeapon(null);
+            onSetCombatMoving(false);
             onEndTurn();
           }}
           className="tactical-card !p-2 flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold border-muted-foreground/30 hover:border-foreground"
