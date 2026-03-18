@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Footprints, Swords, Shield, XCircle, Check } from 'lucide-react';
+import { Footprints, Swords, Shield, XCircle, Check, ChevronDown } from 'lucide-react';
 import { MapToken } from './MapCanvas';
 import { getCharacters } from '@/lib/store';
-import { getModifier, CLASS_HIT_DIE } from '@/lib/types';
+import { getModifier, getEquippedAC, getEquippedWeapons, EquipmentItem } from '@/lib/types';
 
 interface CombatPanelProps {
   token: MapToken;
   allTokens: MapToken[];
   gridSize: number;
+  ftPerCell: number;
   onMoveToken: (tokenId: string, newX: number, newY: number) => void;
   onDamageToken: (tokenId: string, damage: number) => void;
   onEndTurn: () => void;
   isCurrentTurn: boolean;
+  movementUsed: number;
+  onSetMovementUsed: (ft: number) => void;
 }
 
 interface AttackResult {
@@ -23,62 +26,97 @@ interface AttackResult {
   targetName: string;
   natural20: boolean;
   natural1: boolean;
+  weaponName: string;
 }
 
 export function CombatPanel({
   token,
   allTokens,
   gridSize,
+  ftPerCell,
   onMoveToken,
   onDamageToken,
   onEndTurn,
   isCurrentTurn,
+  movementUsed,
+  onSetMovementUsed,
 }: CombatPanelProps) {
   const [mode, setMode] = useState<'idle' | 'moving' | 'attacking'>('idle');
-  const [movementUsed, setMovementUsed] = useState(0);
   const [hasAttacked, setHasAttacked] = useState(false);
   const [lastAttack, setLastAttack] = useState<AttackResult | null>(null);
-  const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [selectedWeapon, setSelectedWeapon] = useState<EquipmentItem | null>(null);
+  const [showWeaponSelect, setShowWeaponSelect] = useState(false);
 
   const characters = getCharacters();
   const charData = characters.find(c => c.name === token.label);
   const maxMovement = charData?.speed || 30;
-  const movementCells = Math.floor(maxMovement / 5); // 5ft per cell
-  const remainingCells = movementCells - Math.floor(movementUsed / 5);
+  const remainingFt = Math.max(0, maxMovement - movementUsed);
+
+  // Get equipped weapons for this character
+  const equippedWeapons = charData ? getEquippedWeapons(charData) : [];
+
+  // Unarmed strike fallback
+  const unarmedStrike: EquipmentItem = {
+    id: 'unarmed',
+    name: 'Unarmed Strike',
+    weight: 0,
+    quantity: 1,
+    equipped: true,
+    category: 'weapon',
+    damageDie: 1,
+    attackBonus: 0,
+    damageBonus: 0,
+  };
+
+  const availableWeapons = equippedWeapons.length > 0 ? equippedWeapons : [unarmedStrike];
 
   // Get enemies (opposite type)
   const enemies = allTokens.filter(t => t.id !== token.id && t.type !== token.type);
 
   const performAttack = (targetId: string) => {
+    const weapon = selectedWeapon || availableWeapons[0];
+    if (!weapon) return;
+
     const target = allTokens.find(t => t.id === targetId);
     if (!target) return;
 
     const targetChar = characters.find(c => c.name === target.label);
-    const targetAC = targetChar?.ac || (10 + Math.floor(Math.random() * 6)); // monsters get random AC
+    const targetAC = targetChar ? getEquippedAC(targetChar) : (target.type === 'monster' ? 10 + Math.floor(Math.random() * 6) : 10);
 
-    // Roll d20 + STR or DEX mod
+    // Attack roll: d20 + ability mod + weapon bonus
     const attackDie = Math.floor(Math.random() * 20) + 1;
     let attackMod = 0;
     if (charData) {
+      const isFinesse = weapon.properties?.includes('finesse');
+      const isRanged = weapon.properties?.includes('ranged');
       const str = charData.abilities.find(a => a.name === 'STR');
-      if (str) attackMod = getModifier(str.score);
+      const dex = charData.abilities.find(a => a.name === 'DEX');
+      if (isRanged) {
+        attackMod = dex ? getModifier(dex.score) : 0;
+      } else if (isFinesse) {
+        const strMod = str ? getModifier(str.score) : 0;
+        const dexMod = dex ? getModifier(dex.score) : 0;
+        attackMod = Math.max(strMod, dexMod);
+      } else {
+        attackMod = str ? getModifier(str.score) : 0;
+      }
     } else {
-      attackMod = Math.floor(Math.random() * 4) + 1; // monster attack mod
+      attackMod = Math.floor(Math.random() * 4) + 1;
     }
 
-    const attackTotal = attackDie + attackMod;
+    const weaponAttackBonus = weapon.attackBonus || 0;
+    const attackTotal = attackDie + attackMod + weaponAttackBonus;
     const natural20 = attackDie === 20;
     const natural1 = attackDie === 1;
     const hit = natural20 || (!natural1 && attackTotal >= targetAC);
 
-    // Damage roll
     let damageRoll = 0;
     if (hit) {
-      const hitDie = charData ? CLASS_HIT_DIE[charData.class] || 8 : 8;
-      const damageDieSides = Math.min(hitDie, 12);
+      const damageDieSides = weapon.damageDie || 4;
       damageRoll = Math.floor(Math.random() * damageDieSides) + 1;
-      if (natural20) damageRoll *= 2; // crit doubles damage
-
+      damageRoll += (weapon.damageBonus || 0) + attackMod;
+      damageRoll = Math.max(1, damageRoll);
+      if (natural20) damageRoll *= 2;
       onDamageToken(targetId, damageRoll);
     }
 
@@ -90,9 +128,11 @@ export function CombatPanel({
       targetName: target.label,
       natural20,
       natural1,
+      weaponName: weapon.name,
     });
     setHasAttacked(true);
-    setSelectedTarget(null);
+    setSelectedWeapon(null);
+    setShowWeaponSelect(false);
     setMode('idle');
   };
 
@@ -120,13 +160,13 @@ export function CombatPanel({
         <div className="flex items-center justify-between">
           <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Movement</span>
           <span className="font-mono text-xs text-foreground">
-            {Math.max(0, maxMovement - movementUsed)}ft / {maxMovement}ft
+            {remainingFt}ft / {maxMovement}ft
           </span>
         </div>
         <div className="w-full bg-muted rounded-full h-1.5 mt-1">
           <div
             className="bg-secondary rounded-full h-1.5 transition-all"
-            style={{ width: `${Math.max(0, (1 - movementUsed / maxMovement)) * 100}%` }}
+            style={{ width: `${Math.max(0, (remainingFt / maxMovement)) * 100}%` }}
           />
         </div>
       </div>
@@ -135,22 +175,24 @@ export function CombatPanel({
       <div className="p-2 flex flex-col gap-1">
         <button
           onClick={() => setMode(mode === 'moving' ? 'idle' : 'moving')}
-          disabled={remainingCells <= 0}
+          disabled={remainingFt <= 0}
           className={`tactical-card !p-2 flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold transition-colors ${
             mode === 'moving' ? 'border-secondary text-secondary' : ''
           } disabled:opacity-30`}
         >
           <Footprints className="w-3 h-3" />
-          {mode === 'moving' ? 'Click map to move' : `Move (${Math.max(0, remainingCells * 5)}ft left)`}
+          {mode === 'moving' ? 'Click map to move' : `Move (${remainingFt}ft left)`}
         </button>
 
+        {/* Attack with weapon selection */}
         <button
           onClick={() => {
             if (mode === 'attacking') {
               setMode('idle');
-              setSelectedTarget(null);
+              setShowWeaponSelect(false);
             } else {
               setMode('attacking');
+              setShowWeaponSelect(true);
             }
           }}
           disabled={hasAttacked}
@@ -159,20 +201,61 @@ export function CombatPanel({
           } disabled:opacity-30`}
         >
           <Swords className="w-3 h-3" />
-          {hasAttacked ? 'Already attacked' : mode === 'attacking' ? 'Select target below' : 'Attack'}
+          {hasAttacked ? 'Already attacked' : mode === 'attacking' ? 'Select weapon & target' : 'Attack'}
         </button>
 
-        {/* Target selection */}
+        {/* Weapon selection */}
         <AnimatePresence>
-          {mode === 'attacking' && (
+          {mode === 'attacking' && showWeaponSelect && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="space-y-1 pl-4"
+              className="space-y-1 pl-2"
             >
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground py-1">Choose Weapon</p>
+              {availableWeapons.map(w => (
+                <button
+                  key={w.id}
+                  onClick={() => { setSelectedWeapon(w); setShowWeaponSelect(false); }}
+                  className={`w-full tactical-card !p-2 flex items-center gap-2 text-[10px] font-mono text-foreground hover:border-accent ${
+                    selectedWeapon?.id === w.id ? 'border-accent text-accent' : ''
+                  }`}
+                >
+                  <Swords className="w-3 h-3 text-muted-foreground" />
+                  <span className="flex-1 text-left">{w.name}</span>
+                  <span className="text-[8px] text-muted-foreground">
+                    1d{w.damageDie || 1}
+                    {(w.damageBonus || 0) > 0 ? `+${w.damageBonus}` : ''}
+                  </span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Target selection (shown after weapon is chosen) */}
+        <AnimatePresence>
+          {mode === 'attacking' && !showWeaponSelect && (selectedWeapon || availableWeapons.length === 1) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1 pl-2"
+            >
+              <div className="flex items-center justify-between py-1">
+                <p className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                  Attacking with: <span className="text-foreground">{(selectedWeapon || availableWeapons[0])?.name}</span>
+                </p>
+                <button
+                  onClick={() => setShowWeaponSelect(true)}
+                  className="text-[8px] text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </div>
               {enemies.length === 0 ? (
-                <p className="text-[9px] text-muted-foreground py-1">No targets in range</p>
+                <p className="text-[9px] text-muted-foreground py-1">No targets</p>
               ) : (
                 enemies.map(enemy => (
                   <button
@@ -219,7 +302,7 @@ export function CombatPanel({
                 </span>
               </div>
               <p className="text-muted-foreground">
-                Roll: {lastAttack.attackRoll} vs AC {lastAttack.targetAC} ({lastAttack.targetName})
+                {lastAttack.weaponName}: {lastAttack.attackRoll} vs AC {lastAttack.targetAC} ({lastAttack.targetName})
               </p>
               {lastAttack.hit && (
                 <p className="text-foreground font-bold">
@@ -233,9 +316,10 @@ export function CombatPanel({
         <button
           onClick={() => {
             setMode('idle');
-            setMovementUsed(0);
+            onSetMovementUsed(0);
             setHasAttacked(false);
             setLastAttack(null);
+            setSelectedWeapon(null);
             onEndTurn();
           }}
           className="tactical-card !p-2 flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold border-muted-foreground/30 hover:border-foreground"
@@ -246,8 +330,4 @@ export function CombatPanel({
       </div>
     </div>
   );
-}
-
-export function getCombatMode(): 'idle' | 'moving' | 'attacking' {
-  return 'idle';
 }
