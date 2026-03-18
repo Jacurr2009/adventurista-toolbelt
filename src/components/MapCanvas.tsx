@@ -37,6 +37,7 @@ const MONSTER_PRESETS = [
 ];
 
 const DEFAULT_GRID_SIZE = 40;
+const DEFAULT_FT_PER_CELL = 5;
 
 export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const { isDM } = useGame();
