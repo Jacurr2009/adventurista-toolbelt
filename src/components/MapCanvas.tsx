@@ -674,11 +674,14 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             onDamageToken={damageToken}
             onEndTurn={() => {
               setCombatMovementUsed(0);
+              setCombatMoving(false);
               handleNextTurn();
             }}
             isCurrentTurn={true}
             movementUsed={combatMovementUsed}
             onSetMovementUsed={setCombatMovementUsed}
+            onSetCombatMoving={setCombatMoving}
+            combatMoving={combatMoving}
           />
         )}
       </div>
