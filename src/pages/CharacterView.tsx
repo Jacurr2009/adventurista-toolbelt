@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Character, formatModifier, getModifier, xpForLevel } from '@/lib/types';
+import { Character, formatModifier, getModifier, xpForLevel, getEquippedAC } from '@/lib/types';
 import { getCharacters, updateCharacter, deleteCharacter } from '@/lib/store';
 import { StatBlock } from '@/components/StatBlock';
 import { HpBar } from '@/components/HpBar';
