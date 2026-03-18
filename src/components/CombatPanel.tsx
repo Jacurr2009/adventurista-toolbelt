@@ -42,6 +42,8 @@ export function CombatPanel({
   isCurrentTurn,
   movementUsed,
   onSetMovementUsed,
+  onSetCombatMoving,
+  combatMoving,
 }: CombatPanelProps) {
   const [mode, setMode] = useState<'idle' | 'moving' | 'attacking'>('idle');
   const [hasAttacked, setHasAttacked] = useState(false);
