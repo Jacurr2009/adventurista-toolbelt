@@ -54,8 +54,10 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const [showGrid, setShowGrid] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
   const [gridSize, setGridSize] = useState(DEFAULT_GRID_SIZE);
+  const [ftPerCell, setFtPerCell] = useState(DEFAULT_FT_PER_CELL);
+  const [combatMovementUsed, setCombatMovementUsed] = useState(0);
   const [showFog, setShowFog] = useState(false);
   const [fogCells, setFogCells] = useState<Set<string>>(() => {
     const saved = localStorage.getItem(`map-fog-${mapId}`);
