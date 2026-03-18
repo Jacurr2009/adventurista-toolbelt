@@ -152,6 +152,15 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     const token = tokens.find(t => t.id === tokenId);
     if (!token) return;
 
+    // Players can only interact with character tokens
+    if (!isDM && token.type === 'monster') return;
+
+    // During combat, disable free dragging (use click-to-move instead)
+    if (combatActive) {
+      setSelectedToken(tokenId);
+      return;
+    }
+
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
