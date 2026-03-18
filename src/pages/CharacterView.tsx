@@ -226,7 +226,9 @@ export default function CharacterView() {
                 item={item}
                 editable={editing}
                 onToggleEquip={id => {
-                  save({ ...char, equipment: char.equipment.map(i => i.id === id ? { ...i, equipped: !i.equipped } : i) });
+                  const updated = { ...char, equipment: char.equipment.map(i => i.id === id ? { ...i, equipped: !i.equipped } : i) };
+                  updated.ac = getEquippedAC(updated);
+                  save(updated);
                 }}
                 onRemove={id => {
                   save({ ...char, equipment: char.equipment.filter(i => i.id !== id) });
