@@ -21,6 +21,12 @@ export interface EquipmentItem {
   quantity: number;
   equipped: boolean;
   category: 'weapon' | 'armor' | 'gear' | 'consumable';
+  // Combat stats
+  attackBonus?: number;    // bonus to attack roll
+  damageBonus?: number;    // bonus to damage roll
+  damageDie?: number;      // e.g. 8 = 1d8
+  acBonus?: number;        // bonus to AC when equipped
+  properties?: string[];   // e.g. ['finesse', 'light', 'two-handed']
 }
 
 export interface Character {
