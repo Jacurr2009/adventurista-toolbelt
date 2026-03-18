@@ -195,7 +195,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setDraggingToken(null);
   };
 
-  // Canvas click for combat movement
+  // Canvas click for combat movement (enforces movement limit)
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!combatMoving || !currentTurnId) return;
     const rect = containerRef.current?.getBoundingClientRect();
@@ -209,6 +209,26 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     if (showGrid) {
       newX = Math.round(newX / gridSize) * gridSize + gridSize / 2;
       newY = Math.round(newY / gridSize) * gridSize + gridSize / 2;
+    }
+
+    // Calculate distance in cells
+    const currentToken = tokens.find(t => t.id === currentTurnId);
+    if (currentToken) {
+      const dx = Math.abs(newX - currentToken.x) / gridSize;
+      const dy = Math.abs(newY - currentToken.y) / gridSize;
+      const cellsMoved = Math.max(dx, dy); // diagonal = 1 cell (D&D optional)
+      const ftMoved = Math.round(cellsMoved) * ftPerCell;
+      
+      const charData = characters.current.find(c => c.name === currentToken.label);
+      const maxMovement = charData?.speed || 30;
+      const remaining = maxMovement - combatMovementUsed;
+      
+      if (ftMoved > remaining) {
+        // Can't move that far
+        return;
+      }
+      
+      setCombatMovementUsed(prev => prev + ftMoved);
     }
 
     moveToken(currentTurnId, newX, newY);
