@@ -2,13 +2,17 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
-  Grid3X3, Eye, EyeOff, Minus,
+  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square,
 } from 'lucide-react';
 import { getCharacters } from '@/lib/store';
 import { Character } from '@/lib/types';
 import { useGame } from '@/lib/GameContext';
 import { InitiativeTracker, InitiativeEntry } from './InitiativeTracker';
 import { CombatPanel } from './CombatPanel';
+import { Obstacle, loadObstacles, saveObstacles } from '@/lib/obstacles';
+import { ObstacleLayer, ObstacleTool } from './ObstacleLayer';
+import { FogOfWarLayer } from './FogOfWarLayer';
+import { isVisible, isMovementBlocked } from '@/lib/visibility';
 
 export interface MapToken {
   id: string;
@@ -20,6 +24,7 @@ export interface MapToken {
   type: 'character' | 'monster';
   hp?: number;
   maxHp?: number;
+  visionRadius?: number; // in pixels
 }
 
 interface MapCanvasProps {
@@ -38,6 +43,7 @@ const MONSTER_PRESETS = [
 
 const DEFAULT_GRID_SIZE = 40;
 const DEFAULT_FT_PER_CELL = 5;
+const DEFAULT_VISION_CELLS = 12; // 12 cells = 60ft default vision
 
 export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const { isDM } = useGame();
@@ -58,14 +64,15 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [gridSize, setGridSize] = useState(DEFAULT_GRID_SIZE);
   const [ftPerCell, setFtPerCell] = useState(DEFAULT_FT_PER_CELL);
   const [combatMovementUsed, setCombatMovementUsed] = useState(0);
-  const [showFog, setShowFog] = useState(false);
-  const [fogCells, setFogCells] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem(`map-fog-${mapId}`);
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
-  const [fogMode, setFogMode] = useState<'reveal' | 'hide'>('reveal');
   const [imgSize, setImgSize] = useState({ w: 800, h: 600 });
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
+
+  // Obstacles
+  const [obstacles, setObstacles] = useState<Obstacle[]>(() => loadObstacles(mapId));
+  const [obstacleTool, setObstacleTool] = useState<ObstacleTool>(null);
+
+  // DM preview player vision
+  const [showPlayerPreview, setShowPlayerPreview] = useState(false);
 
   // Combat state
   const [initiativeEntries, setInitiativeEntries] = useState<InitiativeEntry[]>([]);
@@ -79,14 +86,14 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     ? initiativeEntries[currentTurnIndex]?.tokenId
     : null;
 
-  // Persist tokens & fog
+  // Persist tokens & obstacles
   useEffect(() => {
     localStorage.setItem(`map-tokens-${mapId}`, JSON.stringify(tokens));
   }, [tokens, mapId]);
 
   useEffect(() => {
-    localStorage.setItem(`map-fog-${mapId}`, JSON.stringify([...fogCells]));
-  }, [fogCells, mapId]);
+    saveObstacles(mapId, obstacles);
+  }, [obstacles, mapId]);
 
   const handleImgLoad = () => {
     if (imgRef.current) {
@@ -94,35 +101,26 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     }
   };
 
-  // Grid calculations
   const gridCols = Math.ceil(imgSize.w / gridSize);
   const gridRows = Math.ceil(imgSize.h / gridSize);
 
-  const toggleFogCell = (col: number, row: number) => {
-    if (!isDM) return;
-    const key = `${col},${row}`;
-    setFogCells(prev => {
-      const next = new Set(prev);
-      if (fogMode === 'reveal') {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+  // Vision viewers: all player character tokens
+  const viewers = useMemo(() => {
+    return tokens
+      .filter(t => t.type === 'character')
+      .map(t => ({
+        x: t.x,
+        y: t.y,
+        visionRadius: t.visionRadius ?? (DEFAULT_VISION_CELLS * gridSize),
+      }));
+  }, [tokens, gridSize]);
 
-  const fillAllFog = () => {
-    const cells = new Set<string>();
-    for (let r = 0; r < gridRows; r++) {
-      for (let c = 0; c < gridCols; c++) {
-        cells.add(`${c},${r}`);
-      }
-    }
-    setFogCells(cells);
-  };
-
-  const clearAllFog = () => setFogCells(new Set());
+  // Visibility check for tokens (player view)
+  const isTokenVisible = useCallback((token: MapToken): boolean => {
+    if (isDM && !showPlayerPreview) return true;
+    if (token.type === 'character') return true; // Players always see their own tokens
+    return isVisible(token.x, token.y, viewers, obstacles);
+  }, [isDM, showPlayerPreview, viewers, obstacles]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -131,11 +129,11 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (draggingToken) return;
+    if (draggingToken || obstacleTool) return;
     setIsPanning(true);
     setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [pan, draggingToken]);
+  }, [pan, draggingToken, obstacleTool]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (isPanning && !draggingToken) {
@@ -148,14 +146,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   }, []);
 
   const handleTokenPointerDown = (e: React.PointerEvent, tokenId: string) => {
+    if (obstacleTool) return; // Don't grab tokens while drawing obstacles
     e.stopPropagation();
     const token = tokens.find(t => t.id === tokenId);
     if (!token) return;
-
-    // Players can only interact with character tokens
     if (!isDM && token.type === 'monster') return;
 
-    // During combat, disable free dragging (use click-to-move instead)
     if (combatActive) {
       setSelectedToken(tokenId);
       return;
@@ -175,7 +171,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
   const handleTokenPointerMove = (e: React.PointerEvent) => {
     if (!draggingToken) return;
-    // In combat, only the current turn token can be dragged by the right user
     if (combatActive && draggingToken !== currentTurnId) {
       setDraggingToken(null);
       return;
@@ -189,7 +184,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     let newX = mouseX - dragOffset.x;
     let newY = mouseY - dragOffset.y;
 
-    // Snap to grid if grid is showing
     if (showGrid) {
       newX = Math.round(newX / gridSize) * gridSize + gridSize / 2;
       newY = Math.round(newY / gridSize) * gridSize + gridSize / 2;
@@ -204,7 +198,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setDraggingToken(null);
   };
 
-  // Canvas click for combat movement (enforces movement limit)
+  // Canvas click for combat movement
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!combatMoving || !currentTurnId) return;
     const rect = containerRef.current?.getBoundingClientRect();
@@ -220,27 +214,30 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       newY = Math.round(newY / gridSize) * gridSize + gridSize / 2;
     }
 
-    // Calculate distance in cells
     const currentToken = tokens.find(t => t.id === currentTurnId);
     if (currentToken) {
+      // Check movement blocking
+      if (isMovementBlocked(currentToken.x, currentToken.y, newX, newY, obstacles)) {
+        return; // Path is blocked by an obstacle
+      }
+
       const dx = Math.abs(newX - currentToken.x) / gridSize;
       const dy = Math.abs(newY - currentToken.y) / gridSize;
-      const cellsMoved = Math.max(dx, dy); // diagonal = 1 cell (D&D optional)
+      const cellsMoved = Math.max(dx, dy);
       const ftMoved = Math.round(cellsMoved) * ftPerCell;
-      
+
       const charData = characters.current.find(c => c.name === currentToken.label);
       const maxMovement = charData?.speed || 30;
       const remaining = maxMovement - combatMovementUsed;
-      
+
       if (ftMoved > remaining) {
         return;
       }
-      
+
       setCombatMovementUsed(prev => prev + ftMoved);
     }
 
     moveToken(currentTurnId, newX, newY);
-    // Don't exit move mode - allow continued movement until limit reached
   };
 
   const moveToken = (tokenId: string, newX: number, newY: number) => {
@@ -268,6 +265,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       type: 'character',
       hp: char.hp,
       maxHp: char.maxHp,
+      visionRadius: DEFAULT_VISION_CELLS * gridSize,
     };
     setTokens(prev => [...prev, token]);
     setShowAddMenu(false);
@@ -291,6 +289,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const removeToken = (id: string) => {
     setTokens(prev => prev.filter(t => t.id !== id));
     if (selectedToken === id) setSelectedToken(null);
+  };
+
+  const updateTokenVision = (id: string, radiusCells: number) => {
+    setTokens(prev => prev.map(t =>
+      t.id === id ? { ...t, visionRadius: radiusCells * gridSize } : t
+    ));
   };
 
   const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
@@ -364,35 +368,43 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             </div>
           )}
 
-          {/* Fog toggle (DM only) */}
+          {/* DM Obstacle tools */}
           {isDM && (
             <>
               <div className="w-px h-5 bg-border mx-1" />
               <button
-                onClick={() => setShowFog(!showFog)}
-                className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${showFog ? 'border-accent text-accent' : ''}`}
+                onClick={() => setObstacleTool(obstacleTool === 'select' ? null : 'select')}
+                className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${obstacleTool === 'select' ? 'border-secondary text-secondary' : ''}`}
+                title="Select obstacle"
               >
-                {showFog ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                Fog
+                <MousePointer className="w-3 h-3" />
               </button>
-              {showFog && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setFogMode(fogMode === 'reveal' ? 'hide' : 'reveal')}
-                    className={`tactical-card !p-1 px-2 text-[8px] uppercase tracking-wider font-bold ${
-                      fogMode === 'reveal' ? 'text-secondary' : 'text-accent'
-                    }`}
-                  >
-                    {fogMode === 'reveal' ? 'Reveal' : 'Hide'}
-                  </button>
-                  <button onClick={fillAllFog} className="tactical-card !p-1 px-2 text-[8px] uppercase tracking-wider font-bold">
-                    Fill All
-                  </button>
-                  <button onClick={clearAllFog} className="tactical-card !p-1 px-2 text-[8px] uppercase tracking-wider font-bold">
-                    Clear All
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={() => setObstacleTool(obstacleTool === 'line' ? null : 'line')}
+                className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${obstacleTool === 'line' ? 'border-secondary text-secondary' : ''}`}
+                title="Draw line obstacle"
+              >
+                <Slash className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => setObstacleTool(obstacleTool === 'rect' ? null : 'rect')}
+                className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${obstacleTool === 'rect' ? 'border-secondary text-secondary' : ''}`}
+                title="Draw rectangle obstacle"
+              >
+                <Square className="w-3 h-3" />
+              </button>
+
+              <div className="w-px h-5 bg-border mx-1" />
+
+              {/* Player vision preview */}
+              <button
+                onClick={() => setShowPlayerPreview(!showPlayerPreview)}
+                className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${showPlayerPreview ? 'border-accent text-accent' : ''}`}
+                title="Preview player vision"
+              >
+                {showPlayerPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                Player View
+              </button>
             </>
           )}
 
@@ -452,7 +464,10 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         {/* Canvas */}
         <div
           ref={containerRef}
-          className={`flex-1 overflow-hidden relative bg-muted/30 ${combatMoving ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
+          className={`flex-1 overflow-hidden relative bg-muted/30 ${
+            obstacleTool === 'line' || obstacleTool === 'rect' ? 'cursor-crosshair' :
+            combatMoving ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
+          }`}
           onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={(e) => { handlePointerMove(e); handleTokenPointerMove(e); }}
@@ -506,54 +521,35 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               </svg>
             )}
 
-            {/* Fog of war */}
-            {(showFog || !isDM) && fogCells.size > 0 && (
-              <div className="absolute inset-0" style={{ pointerEvents: isDM && showFog ? 'auto' : 'none' }}>
-                {Array.from({ length: gridRows }, (_, row) =>
-                  Array.from({ length: gridCols }, (_, col) => {
-                    const key = `${col},${row}`;
-                    const isFogged = fogCells.has(key);
-                    // For players, always show fog. For DM editing, show semi-transparent
-                    if (!isFogged && !isDM) return null;
-                    if (!isFogged && isDM) return (
-                      <div
-                        key={key}
-                        className="absolute"
-                        style={{
-                          left: col * gridSize,
-                          top: row * gridSize,
-                          width: gridSize,
-                          height: gridSize,
-                        }}
-                        onClick={(e) => { e.stopPropagation(); toggleFogCell(col, row); }}
-                      />
-                    );
-                    return (
-                      <div
-                        key={key}
-                        className="absolute transition-opacity"
-                        style={{
-                          left: col * gridSize,
-                          top: row * gridSize,
-                          width: gridSize,
-                          height: gridSize,
-                          backgroundColor: isDM ? 'hsl(var(--background) / 0.6)' : 'hsl(var(--background) / 0.95)',
-                          cursor: isDM && showFog ? 'pointer' : 'default',
-                        }}
-                        onClick={(e) => { e.stopPropagation(); toggleFogCell(col, row); }}
-                      />
-                    );
-                  })
-                )}
-              </div>
-            )}
+            {/* Obstacle layer */}
+            <ObstacleLayer
+              obstacles={obstacles}
+              setObstacles={setObstacles}
+              tool={obstacleTool}
+              imgSize={imgSize}
+              zoom={zoom}
+              pan={pan}
+              isDM={isDM}
+              showForPlayer={showPlayerPreview}
+            />
+
+            {/* Dynamic fog of war based on LOS */}
+            <FogOfWarLayer
+              gridSize={gridSize}
+              gridCols={gridCols}
+              gridRows={gridRows}
+              imgSize={imgSize}
+              viewers={viewers}
+              obstacles={obstacles}
+              isDM={isDM}
+              showPlayerPreview={showPlayerPreview}
+            />
 
             {/* Tokens */}
             {tokens.map(token => {
-              // Players can't see tokens hidden in fog
-              if (!isDM && fogCells.has(`${Math.floor(token.x / gridSize)},${Math.floor(token.y / gridSize)}`)) {
-                return null;
-              }
+              // Hide tokens not visible to players
+              if (!isTokenVisible(token)) return null;
+
               const isCurrent = combatActive && token.id === currentTurnId;
               const isSelected = token.id === selectedToken;
               return (
@@ -563,13 +559,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                   style={{
                     left: token.x - 18,
                     top: token.y - 18,
-                    cursor: 'move',
-                    zIndex: isCurrent ? 20 : 10,
+                    cursor: obstacleTool ? 'default' : 'move',
+                    zIndex: isCurrent ? 30 : 20,
                   }}
                   onPointerDown={(e) => handleTokenPointerDown(e, token.id)}
                   onClick={(e) => { e.stopPropagation(); setSelectedToken(token.id); }}
                 >
-                  {/* Current turn indicator ring */}
                   {isCurrent && (
                     <div className="absolute -inset-1.5 rounded-full border-2 border-secondary animate-pulse" />
                   )}
@@ -592,7 +587,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                       {token.label.slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                  {/* HP bar */}
                   {token.hp !== undefined && token.maxHp !== undefined && token.maxHp > 0 && (
                     <div className="w-9 h-1 bg-muted rounded-full mt-0.5 overflow-hidden">
                       <div
@@ -650,7 +644,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         )}
       </div>
 
-      {/* Right sidebar: Initiative + Combat */}
+      {/* Right sidebar: Initiative + Combat + Vision */}
       <div className="w-56 shrink-0 bg-card border-l border-border overflow-y-auto hidden md:flex flex-col gap-2 p-2">
         <InitiativeTracker
           tokens={tokens}
@@ -683,6 +677,39 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             onSetCombatMoving={setCombatMoving}
             combatMoving={combatMoving}
           />
+        )}
+
+        {/* Vision radius controls (DM only, per selected character token) */}
+        {isDM && currentToken && currentToken.type === 'character' && (
+          <div className="border border-border rounded p-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-1">
+              Vision — {currentToken.label}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => updateTokenVision(currentToken.id, Math.max(1, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) - 2))}
+                className="tactical-card !p-1 px-1"
+              >
+                <Minus className="w-3 h-3" />
+              </button>
+              <span className="font-mono text-[10px] text-foreground flex-1 text-center">
+                {Math.round((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize * ftPerCell)}ft
+              </span>
+              <button
+                onClick={() => updateTokenVision(currentToken.id, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) + 2)}
+                className="tactical-card !p-1 px-1"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Obstacle count */}
+        {isDM && obstacles.length > 0 && (
+          <div className="text-[9px] font-mono text-muted-foreground px-1">
+            {obstacles.length} obstacle{obstacles.length !== 1 ? 's' : ''} · {obstacles.filter(o => o.blocksVision).length} vision · {obstacles.filter(o => o.blocksMovement).length} movement
+          </div>
         )}
       </div>
     </div>
