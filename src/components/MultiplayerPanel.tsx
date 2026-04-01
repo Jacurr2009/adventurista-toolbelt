@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wifi, WifiOff, Copy, Check, Users, LogIn, LogOut, Globe } from 'lucide-react';
 import { useMultiplayer } from '@/lib/MultiplayerContext';
@@ -10,6 +10,15 @@ export function MultiplayerPanel() {
   const [joinCode, setJoinCode] = useState('');
   const [copied, setCopied] = useState(false);
   const [nameInput, setNameInput] = useState(playerName);
+
+  // Auto-fill join code from URL ?join=CODE
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('join');
+    if (code && status === 'disconnected') {
+      setJoinCode(code.toUpperCase());
+    }
+  }, [status]);
 
   const handleHost = async () => {
     if (!nameInput.trim()) return;
