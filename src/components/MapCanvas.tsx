@@ -7,6 +7,8 @@ import {
 import { getCharacters } from '@/lib/store';
 import { Character } from '@/lib/types';
 import { useGame } from '@/lib/GameContext';
+import { useMultiplayer } from '@/lib/MultiplayerContext';
+import { useMultiplayerSync, MapSyncState } from '@/hooks/useMultiplayerSync';
 import { InitiativeTracker, InitiativeEntry } from './InitiativeTracker';
 import { CombatPanel } from './CombatPanel';
 import { Obstacle, loadObstacles, saveObstacles } from '@/lib/obstacles';
