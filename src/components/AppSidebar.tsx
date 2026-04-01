@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Plus, BookOpen, Menu, X, Dices, Map, Shield, Eye } from 'lucide-react';
 import { useGame } from '@/lib/GameContext';
+import { MultiplayerPanel } from '@/components/MultiplayerPanel';
 
 export function AppSidebar() {
   const location = useLocation();
@@ -64,8 +65,11 @@ export function AppSidebar() {
         </div>
         {roleToggle}
         {nav}
-        <div className="p-4 border-t border-sidebar-border">
-          <p className="text-[9px] text-muted-foreground uppercase tracking-widest">v1.1 // {isDM ? 'DM MODE' : 'PLAYER MODE'}</p>
+        <div className="px-2 pb-2">
+          <MultiplayerPanel />
+        </div>
+        <div className="p-4 border-t border-sidebar-border mt-auto">
+          <p className="text-[9px] text-muted-foreground uppercase tracking-widest">v1.2 // {isDM ? 'DM MODE' : 'PLAYER MODE'}</p>
         </div>
       </aside>
 
@@ -108,6 +112,9 @@ export function AppSidebar() {
             >
               {roleToggle}
               {nav}
+              <div className="px-2 pb-3">
+                <MultiplayerPanel />
+              </div>
             </motion.div>
           </>
         )}

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DiceFloatingButton } from "@/components/DiceFloatingButton";
 import { GameProvider } from "@/lib/GameContext";
+import { MultiplayerProvider } from "@/lib/MultiplayerContext";
 import Index from "./pages/Index";
 import CreateCharacter from "./pages/CreateCharacter";
 import CharacterView from "./pages/CharacterView";
@@ -20,25 +21,27 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <GameProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <div className="flex min-h-screen bg-background">
-            <AppSidebar />
-            <main className="flex-1 min-w-0 pt-12 md:pt-0">
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/create" element={<CreateCharacter />} />
-                <Route path="/character/:id" element={<CharacterView />} />
-                <Route path="/resources" element={<Resources />} />
-                <Route path="/dice" element={<DiceRoller />} />
-                <Route path="/maps" element={<Maps />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <DiceFloatingButton />
-          </div>
-        </BrowserRouter>
+        <MultiplayerProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <div className="flex min-h-screen bg-background">
+              <AppSidebar />
+              <main className="flex-1 min-w-0 pt-12 md:pt-0">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/create" element={<CreateCharacter />} />
+                  <Route path="/character/:id" element={<CharacterView />} />
+                  <Route path="/resources" element={<Resources />} />
+                  <Route path="/dice" element={<DiceRoller />} />
+                  <Route path="/maps" element={<Maps />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
+              <DiceFloatingButton />
+            </div>
+          </BrowserRouter>
+        </MultiplayerProvider>
       </GameProvider>
     </TooltipProvider>
   </QueryClientProvider>

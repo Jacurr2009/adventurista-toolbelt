@@ -7,6 +7,8 @@ import {
 import { getCharacters } from '@/lib/store';
 import { Character } from '@/lib/types';
 import { useGame } from '@/lib/GameContext';
+import { useMultiplayer } from '@/lib/MultiplayerContext';
+import { useMultiplayerSync, MapSyncState } from '@/hooks/useMultiplayerSync';
 import { InitiativeTracker, InitiativeEntry } from './InitiativeTracker';
 import { CombatPanel } from './CombatPanel';
 import { Obstacle, loadObstacles, saveObstacles } from '@/lib/obstacles';
@@ -47,6 +49,7 @@ const DEFAULT_VISION_CELLS = 12; // 12 cells = 60ft default vision
 
 export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const { isDM } = useGame();
+  const { isHost, status: mpStatus } = useMultiplayer();
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [tokens, setTokens] = useState<MapToken[]>(() => {
@@ -81,6 +84,45 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [combatMoving, setCombatMoving] = useState(false);
 
   const characters = useRef<Character[]>(getCharacters());
+
+  // Multiplayer sync
+  const getState = useCallback((): MapSyncState => ({
+    tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex,
+    gridSize, ftPerCell, activeMapId: mapId,
+  }), [tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, mapId]);
+
+  const applyState = useCallback((state: Partial<MapSyncState>) => {
+    if (state.tokens) setTokens(state.tokens);
+    if (state.obstacles) setObstacles(state.obstacles);
+    if (state.initiativeEntries) setInitiativeEntries(state.initiativeEntries);
+    if (state.combatActive !== undefined) setCombatActive(state.combatActive);
+    if (state.currentTurnIndex !== undefined) setCurrentTurnIndex(state.currentTurnIndex);
+    if (state.gridSize) setGridSize(state.gridSize);
+    if (state.ftPerCell) setFtPerCell(state.ftPerCell);
+  }, []);
+
+  const { connected, broadcastState, broadcastTokenMove, broadcastDamage } = useMultiplayerSync({
+    isHost,
+    getState,
+    applyState,
+    onTokenMove: (tokenId, x, y) => {
+      setTokens(prev => prev.map(t => t.id === tokenId ? { ...t, x, y } : t));
+    },
+    onDamageToken: (tokenId, damage) => {
+      setTokens(prev => prev.map(t => {
+        if (t.id !== tokenId) return t;
+        const currentHp = t.hp ?? t.maxHp ?? 10;
+        return { ...t, hp: Math.max(0, currentHp - damage) };
+      }));
+    },
+  });
+
+  // Broadcast state when it changes (host only)
+  useEffect(() => {
+    if (isHost && connected) {
+      broadcastState();
+    }
+  }, [tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, isHost, connected, broadcastState]);
 
   const currentTurnId = combatActive && initiativeEntries.length > 0
     ? initiativeEntries[currentTurnIndex]?.tokenId
@@ -244,6 +286,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setTokens(prev => prev.map(t =>
       t.id === tokenId ? { ...t, x: newX, y: newY } : t
     ));
+    if (connected) broadcastTokenMove(tokenId, newX, newY);
   };
 
   const damageToken = (tokenId: string, damage: number) => {
@@ -252,6 +295,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       const currentHp = t.hp ?? t.maxHp ?? 10;
       return { ...t, hp: Math.max(0, currentHp - damage) };
     }));
+    if (connected) broadcastDamage(tokenId, damage);
   };
 
   const addCharacterToken = (char: Character) => {
