@@ -286,6 +286,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setTokens(prev => prev.map(t =>
       t.id === tokenId ? { ...t, x: newX, y: newY } : t
     ));
+    if (connected) broadcastTokenMove(tokenId, newX, newY);
   };
 
   const damageToken = (tokenId: string, damage: number) => {
@@ -294,6 +295,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       const currentHp = t.hp ?? t.maxHp ?? 10;
       return { ...t, hp: Math.max(0, currentHp - damage) };
     }));
+    if (connected) broadcastDamage(tokenId, damage);
   };
 
   const addCharacterToken = (char: Character) => {
