@@ -4,7 +4,7 @@ import Peer, { DataConnection } from 'peerjs';
 export type ConnectionStatus = 'disconnected' | 'hosting' | 'joining' | 'connected' | 'error';
 
 export interface MultiplayerMessage {
-  type: 'state-sync' | 'token-move' | 'token-update' | 'combat-action' | 'chat' | 'request-sync' | 'full-state';
+  type: 'state-sync' | 'token-move' | 'token-update' | 'combat-action' | 'chat' | 'request-sync' | 'full-state' | 'characters-sync';
   payload: any;
   senderId?: string;
   senderName?: string;
