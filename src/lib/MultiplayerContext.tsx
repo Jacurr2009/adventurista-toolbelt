@@ -74,6 +74,15 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('mp_player_name', name);
   };
 
+  // Persist session for reconnection on refresh
+  const saveSession = useCallback((code: string, hosting: boolean) => {
+    sessionStorage.setItem('mp_session', JSON.stringify({ code, hosting, playerName }));
+  }, [playerName]);
+
+  const clearSession = useCallback(() => {
+    sessionStorage.removeItem('mp_session');
+  }, []);
+
   const setupConnectionHandlers = useCallback((conn: DataConnection, asHost: boolean) => {
     conn.on('data', (data) => {
       const msg = data as MultiplayerMessage;
@@ -114,6 +123,7 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
         setStatus('hosting');
         setRoomCode(code);
         setIsHost(true);
+        saveSession(code, true);
         resolve(code);
       });
 
@@ -171,6 +181,7 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
           setStatus('connected');
           setRoomCode(cleanCode);
           setIsHost(false);
+          saveSession(cleanCode, false);
 
           // Send join message
           conn.send({
@@ -220,7 +231,8 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
     setIsHost(false);
     setConnectedPeers([]);
     setError(null);
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   const broadcast = useCallback((msg: MultiplayerMessage) => {
     msg.senderId = peerRef.current?.id;
@@ -245,10 +257,70 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
     return () => { handlersRef.current.delete(handler); };
   }, []);
 
+  // Auto-reconnect on page refresh
+  useEffect(() => {
+    const raw = sessionStorage.getItem('mp_session');
+    if (!raw || status !== 'disconnected') return;
+    try {
+      const session = JSON.parse(raw);
+      if (session.playerName) setPlayerName(session.playerName);
+      // Small delay to let PeerJS server be ready
+      const timer = setTimeout(() => {
+        if (session.hosting) {
+          // Re-host with same code
+          const peerId = PEER_PREFIX + session.code;
+          const peer = new Peer(peerId, { debug: 0 });
+          peerRef.current = peer;
+          peer.on('open', () => {
+            setStatus('hosting');
+            setRoomCode(session.code);
+            setIsHost(true);
+          });
+          peer.on('connection', (conn) => {
+            conn.on('open', () => {
+              connectionsRef.current.set(conn.peer, conn);
+              setupConnectionHandlers(conn, true);
+              conn.on('data', (data) => {
+                const msg = data as MultiplayerMessage;
+                if (msg.type === 'chat' && msg.payload?.type === 'join') {
+                  setConnectedPeers(prev => {
+                    const exists = prev.find(p => p.id === conn.peer);
+                    if (exists) return prev;
+                    return [...prev, { id: conn.peer, name: msg.senderName || 'Player' }];
+                  });
+                }
+                handlersRef.current.forEach(h => h(msg));
+              });
+            });
+          });
+          peer.on('error', () => {
+            clearSession();
+            setStatus('disconnected');
+          });
+        } else {
+          // Re-join
+          joinSession(session.code).catch(() => {
+            clearSession();
+          });
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    } catch {
+      clearSession();
+    }
+  }, []); // Run once on mount
+
   // Cleanup on unmount
   useEffect(() => {
-    return () => { disconnect(); };
-  }, [disconnect]);
+    return () => {
+      connectionsRef.current.forEach(c => { try { c.close(); } catch {} });
+      connectionsRef.current.clear();
+      if (peerRef.current) {
+        try { peerRef.current.destroy(); } catch {}
+        peerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <MultiplayerContext.Provider value={{
