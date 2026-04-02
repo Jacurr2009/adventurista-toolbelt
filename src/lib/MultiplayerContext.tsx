@@ -74,6 +74,15 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('mp_player_name', name);
   };
 
+  // Persist session for reconnection on refresh
+  const saveSession = useCallback((code: string, hosting: boolean) => {
+    sessionStorage.setItem('mp_session', JSON.stringify({ code, hosting, playerName }));
+  }, [playerName]);
+
+  const clearSession = useCallback(() => {
+    sessionStorage.removeItem('mp_session');
+  }, []);
+
   const setupConnectionHandlers = useCallback((conn: DataConnection, asHost: boolean) => {
     conn.on('data', (data) => {
       const msg = data as MultiplayerMessage;

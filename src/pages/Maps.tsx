@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapCanvas } from '@/components/MapCanvas';
 import { Plus, X, Upload, Maximize2, ArrowLeft } from 'lucide-react';
+import { useGame } from '@/lib/GameContext';
+import { useMultiplayer } from '@/lib/MultiplayerContext';
 
 interface MapEntry {
   id: string;
@@ -22,6 +24,10 @@ function saveMaps(maps: MapEntry[]) {
 }
 
 export default function Maps() {
+  const { isDM } = useGame();
+  const { status, isHost, broadcast, onMessage } = useMultiplayer();
+  const connected = status === 'hosting' || status === 'connected';
+
   const [maps, setMaps] = useState<MapEntry[]>(getMaps());
   const [activeMapId, setActiveMapId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -29,7 +35,56 @@ export default function Maps() {
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Remote map received from host (for players who don't have the map locally)
+  const [remoteMap, setRemoteMap] = useState<{ id: string; name: string; image: string } | null>(null);
+
   const activeMap = maps.find(m => m.id === activeMapId);
+  // If player has a remote map active, use that
+  const displayMap = activeMap || (remoteMap && activeMapId === remoteMap.id ? remoteMap : null);
+
+  // DM: broadcast active map to players when opening a map
+  useEffect(() => {
+    if (!connected || !isHost || !activeMap) return;
+    broadcast({
+      type: 'full-state',
+      payload: {
+        type: 'map-select',
+        mapId: activeMap.id,
+        mapName: activeMap.name,
+        mapImage: activeMap.image,
+      },
+    });
+  }, [connected, isHost, activeMapId, activeMap, broadcast]);
+
+  // DM: broadcast map deselection
+  useEffect(() => {
+    if (!connected || !isHost || activeMapId) return;
+    broadcast({
+      type: 'full-state',
+      payload: { type: 'map-deselect' },
+    });
+  }, [connected, isHost, activeMapId, broadcast]);
+
+  // Player: listen for map selection from host
+  useEffect(() => {
+    if (!connected) return;
+    const unsub = onMessage((msg) => {
+      if (msg.type === 'full-state' && msg.payload?.type === 'map-select') {
+        const { mapId, mapName, mapImage } = msg.payload;
+        setRemoteMap({ id: mapId, name: mapName, image: mapImage });
+        if (!isHost) {
+          setActiveMapId(mapId);
+        }
+      }
+      if (msg.type === 'full-state' && msg.payload?.type === 'map-deselect') {
+        if (!isHost) {
+          setActiveMapId(null);
+          setRemoteMap(null);
+        }
+      }
+    });
+    return unsub;
+  }, [connected, isHost, onMessage]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,17 +126,34 @@ export default function Maps() {
   };
 
   // Active map view (full canvas)
-  if (activeMap) {
+  if (displayMap) {
     return (
       <div className="flex-1 flex flex-col h-screen md:h-auto overflow-hidden">
         <div className="flex items-center gap-3 p-3 bg-card border-b border-border shrink-0">
           <button onClick={() => setActiveMapId(null)} className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <h2 className="font-display text-sm text-foreground truncate">{activeMap.name}</h2>
+          <h2 className="font-display text-sm text-foreground truncate">{displayMap.name}</h2>
+          {connected && !isHost && (
+            <span className="text-[9px] uppercase tracking-widest text-secondary font-bold ml-auto">SYNCED</span>
+          )}
         </div>
         <div className="flex-1 min-h-0">
-          <MapCanvas mapImage={activeMap.image} mapId={activeMap.id} />
+          <MapCanvas mapImage={displayMap.image} mapId={displayMap.id} />
+        </div>
+      </div>
+    );
+  }
+
+  // Player waiting for DM to select a map
+  if (!isDM && connected && !isHost && !displayMap) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="tactical-card text-center py-16">
+          <p className="font-display text-muted-foreground text-sm tracking-widest mb-2">WAITING FOR DM</p>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-widest">
+            The Dungeon Master hasn't selected a map yet.
+          </p>
         </div>
       </div>
     );
@@ -96,13 +168,15 @@ export default function Maps() {
             {maps.length} MAP{maps.length !== 1 ? 'S' : ''} UPLOADED
           </p>
         </div>
-        <motion.button
-          onClick={() => setUploading(!uploading)}
-          className="tactical-card py-2 px-4 flex items-center gap-2 text-[11px] uppercase tracking-widest font-bold"
-          whileTap={{ scale: 0.98 }}
-        >
-          {uploading ? <><X className="w-3 h-3" /> CANCEL</> : <><Plus className="w-3 h-3" /> UPLOAD MAP</>}
-        </motion.button>
+        {isDM && (
+          <motion.button
+            onClick={() => setUploading(!uploading)}
+            className="tactical-card py-2 px-4 flex items-center gap-2 text-[11px] uppercase tracking-widest font-bold"
+            whileTap={{ scale: 0.98 }}
+          >
+            {uploading ? <><X className="w-3 h-3" /> CANCEL</> : <><Plus className="w-3 h-3" /> UPLOAD MAP</>}
+          </motion.button>
+        )}
       </div>
 
       {/* Upload form */}
@@ -164,12 +238,14 @@ export default function Maps() {
       {maps.length === 0 ? (
         <div className="tactical-card text-center py-16">
           <p className="font-display text-muted-foreground text-sm tracking-widest mb-4">NO MAPS UPLOADED.</p>
-          <button
-            onClick={() => setUploading(true)}
-            className="text-[11px] uppercase tracking-widest text-foreground border-b border-foreground/30 pb-0.5 hover:border-foreground transition-colors"
-          >
-            UPLOAD YOUR FIRST MAP →
-          </button>
+          {isDM && (
+            <button
+              onClick={() => setUploading(true)}
+              className="text-[11px] uppercase tracking-widest text-foreground border-b border-foreground/30 pb-0.5 hover:border-foreground transition-colors"
+            >
+              UPLOAD YOUR FIRST MAP →
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -192,12 +268,14 @@ export default function Maps() {
                     {new Date(map.createdAt).toLocaleDateString()}
                   </p>
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(map.id); }}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+                {isDM && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(map.id); }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </motion.div>
           ))}
