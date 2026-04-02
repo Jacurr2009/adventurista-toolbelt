@@ -123,6 +123,7 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
         setStatus('hosting');
         setRoomCode(code);
         setIsHost(true);
+        saveSession(code, true);
         resolve(code);
       });
 
