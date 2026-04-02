@@ -181,6 +181,7 @@ export function MultiplayerProvider({ children }: { children: ReactNode }) {
           setStatus('connected');
           setRoomCode(cleanCode);
           setIsHost(false);
+          saveSession(cleanCode, false);
 
           // Send join message
           conn.send({
