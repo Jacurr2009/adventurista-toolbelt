@@ -83,7 +83,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
   const [combatMoving, setCombatMoving] = useState(false);
 
-  const characters = useRef<Character[]>(getCharacters());
+  const { allCharacters } = useCharacterSync();
+  const characters = useRef<Character[]>(allCharacters);
 
   // Multiplayer sync
   const getState = useCallback((): MapSyncState => ({
