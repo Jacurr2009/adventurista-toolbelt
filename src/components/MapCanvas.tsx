@@ -4,7 +4,7 @@ import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
   Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square,
 } from 'lucide-react';
-import { getCharacters } from '@/lib/store';
+import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { Character } from '@/lib/types';
 import { useGame } from '@/lib/GameContext';
 import { useMultiplayer } from '@/lib/MultiplayerContext';
