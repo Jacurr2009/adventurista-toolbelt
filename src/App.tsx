@@ -43,6 +43,7 @@ const App = () => (
               <DiceFloatingButton />
             </div>
           </BrowserRouter>
+        </CharacterSyncProvider>
         </MultiplayerProvider>
       </GameProvider>
     </TooltipProvider>
