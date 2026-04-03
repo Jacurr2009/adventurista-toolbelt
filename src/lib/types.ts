@@ -79,6 +79,20 @@ export function formatModifier(score: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`;
 }
 
+export function getProficiencyBonus(level: number): number {
+  if (level <= 4) return 2;
+  if (level <= 8) return 3;
+  if (level <= 12) return 4;
+  if (level <= 16) return 5;
+  return 6;
+}
+
+export function getDistanceFt(x1: number, y1: number, x2: number, y2: number, gridSize: number, ftPerCell: number): number {
+  const dx = Math.abs(x1 - x2) / gridSize;
+  const dy = Math.abs(y1 - y2) / gridSize;
+  return Math.round(Math.max(dx, dy)) * ftPerCell;
+}
+
 export function xpForLevel(level: number): number {
   const table = [0,0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
   return table[Math.min(level, 20)] ?? 355000;
