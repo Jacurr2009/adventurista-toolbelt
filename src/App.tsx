@@ -23,6 +23,7 @@ const App = () => (
     <TooltipProvider>
       <GameProvider>
         <MultiplayerProvider>
+        <CharacterSyncProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
