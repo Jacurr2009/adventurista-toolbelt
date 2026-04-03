@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { DiceFloatingButton } from "@/components/DiceFloatingButton";
 import { GameProvider } from "@/lib/GameContext";
 import { MultiplayerProvider } from "@/lib/MultiplayerContext";
+import { CharacterSyncProvider } from "@/lib/CharacterSyncContext";
 import Index from "./pages/Index";
 import CreateCharacter from "./pages/CreateCharacter";
 import CharacterView from "./pages/CharacterView";
@@ -22,6 +23,7 @@ const App = () => (
     <TooltipProvider>
       <GameProvider>
         <MultiplayerProvider>
+        <CharacterSyncProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -41,6 +43,7 @@ const App = () => (
               <DiceFloatingButton />
             </div>
           </BrowserRouter>
+        </CharacterSyncProvider>
         </MultiplayerProvider>
       </GameProvider>
     </TooltipProvider>

@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getCharacters } from '@/lib/store';
-import { Character } from '@/lib/types';
+import { useEffect } from 'react';
+import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { CharacterCard } from '@/components/CharacterCard';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -8,50 +7,14 @@ import { Plus } from 'lucide-react';
 import { useMultiplayer } from '@/lib/MultiplayerContext';
 
 export default function CharacterList() {
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [remoteCharacters, setRemoteCharacters] = useState<Map<string, Character[]>>(new Map());
-  const { status, isHost, broadcast, onMessage } = useMultiplayer();
+  const { allCharacters, syncedPlayerCount, refreshLocal } = useCharacterSync();
+  const { status, isHost } = useMultiplayer();
   const connected = status === 'hosting' || status === 'connected';
 
+  // Refresh local characters when page mounts (in case new ones were created)
   useEffect(() => {
-    setCharacters(getCharacters());
-  }, []);
-
-  // Players: broadcast characters when connected or characters change
-  useEffect(() => {
-    if (!connected || isHost) return;
-    const chars = getCharacters();
-    broadcast({
-      type: 'characters-sync',
-      payload: { characters: chars },
-    } as any);
-  }, [connected, isHost, characters, broadcast]);
-
-  // Host: listen for character syncs from players
-  useEffect(() => {
-    if (!connected) return;
-    const unsub = onMessage((msg) => {
-      if (msg.type === 'characters-sync' && msg.senderId) {
-        setRemoteCharacters(prev => {
-          const next = new Map(prev);
-          next.set(msg.senderId!, msg.payload.characters);
-          return next;
-        });
-      }
-    });
-    return unsub;
-  }, [connected, onMessage]);
-
-  // Merge local + remote characters (deduplicate by id)
-  const allCharacters = (() => {
-    if (!connected || !isHost) return characters;
-    const merged = new Map<string, Character>();
-    characters.forEach(c => merged.set(c.id, c));
-    remoteCharacters.forEach(chars => {
-      chars.forEach(c => merged.set(c.id, c));
-    });
-    return Array.from(merged.values());
-  })();
+    refreshLocal();
+  }, [refreshLocal]);
 
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -60,8 +23,8 @@ export default function CharacterList() {
           <h1 className="font-display text-lg text-foreground">CHARACTER ROSTER</h1>
           <p className="text-[11px] text-muted-foreground uppercase tracking-widest">
             {allCharacters.length} BUILD{allCharacters.length !== 1 ? 'S' : ''} REGISTERED
-            {connected && isHost && remoteCharacters.size > 0 && (
-              <span className="ml-2 text-tactical-gold">• {remoteCharacters.size} PLAYER{remoteCharacters.size !== 1 ? 'S' : ''} SYNCED</span>
+            {connected && isHost && syncedPlayerCount > 0 && (
+              <span className="ml-2 text-tactical-gold">• {syncedPlayerCount} PLAYER{syncedPlayerCount !== 1 ? 'S' : ''} SYNCED</span>
             )}
           </p>
         </div>
