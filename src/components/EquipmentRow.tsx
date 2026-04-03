@@ -20,7 +20,10 @@ export function EquipmentRow({ item, onToggleEquip, onRemove, editable }: Equipm
         {item.name}
         {item.damageDie && item.category === 'weapon' && (
           <span className="ml-1 text-[9px] text-muted-foreground">
-            (1d{item.damageDie}{(item.damageBonus || 0) > 0 ? `+${item.damageBonus}` : ''})
+            ({item.damageDiceCount || 1}d{item.damageDie}{(item.damageBonus || 0) > 0 ? `+${item.damageBonus}` : ''}
+            {item.range ? ` • ${item.range}ft` : ''}
+            {item.properties?.includes('finesse') ? ' • finesse' : ''}
+            {item.properties?.includes('ranged') ? ' • ranged' : ''})
           </span>
         )}
         {item.acBonus && item.category === 'armor' && (

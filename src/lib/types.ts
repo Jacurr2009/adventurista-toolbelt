@@ -22,11 +22,14 @@ export interface EquipmentItem {
   equipped: boolean;
   category: 'weapon' | 'armor' | 'gear' | 'consumable';
   // Combat stats
-  attackBonus?: number;    // bonus to attack roll
-  damageBonus?: number;    // bonus to damage roll
+  attackBonus?: number;    // magic/enhancement bonus to attack roll
+  damageBonus?: number;    // magic/enhancement bonus to damage roll
   damageDie?: number;      // e.g. 8 = 1d8
+  damageDiceCount?: number; // e.g. 2 = 2d8 (defaults to 1)
   acBonus?: number;        // bonus to AC when equipped
-  properties?: string[];   // e.g. ['finesse', 'light', 'two-handed']
+  range?: number;          // range in feet (default 5 for melee)
+  longRange?: number;      // long range in feet (disadvantage)
+  properties?: string[];   // e.g. ['finesse', 'light', 'two-handed', 'ranged', 'thrown', 'heavy', 'reach', 'versatile', 'healing']
 }
 
 export interface Character {
@@ -76,6 +79,20 @@ export function formatModifier(score: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`;
 }
 
+export function getProficiencyBonus(level: number): number {
+  if (level <= 4) return 2;
+  if (level <= 8) return 3;
+  if (level <= 12) return 4;
+  if (level <= 16) return 5;
+  return 6;
+}
+
+export function getDistanceFt(x1: number, y1: number, x2: number, y2: number, gridSize: number, ftPerCell: number): number {
+  const dx = Math.abs(x1 - x2) / gridSize;
+  const dy = Math.abs(y1 - y2) / gridSize;
+  return Math.round(Math.max(dx, dy)) * ftPerCell;
+}
+
 export function xpForLevel(level: number): number {
   const table = [0,0,300,900,2700,6500,14000,23000,34000,48000,64000,85000,100000,120000,140000,165000,195000,225000,265000,305000,355000];
   return table[Math.min(level, 20)] ?? 355000;
@@ -103,21 +120,30 @@ export function getEquippedWeapons(char: Character): EquipmentItem[] {
 }
 
 export const EQUIPMENT_CATALOG: Omit<EquipmentItem, 'id' | 'equipped'>[] = [
-  // Weapons — damageDie is the die sides, attackBonus/damageBonus default to 0
-  { name: 'Longsword', weight: 3, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['versatile'] },
-  { name: 'Shortbow', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['ranged', 'two-handed'] },
-  { name: 'Dagger', weight: 1, quantity: 1, category: 'weapon', damageDie: 4, attackBonus: 0, damageBonus: 0, properties: ['finesse', 'light', 'thrown'] },
-  { name: 'Greataxe', weight: 7, quantity: 1, category: 'weapon', damageDie: 12, attackBonus: 0, damageBonus: 0, properties: ['heavy', 'two-handed'] },
-  { name: 'Handaxe', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['light', 'thrown'] },
-  { name: 'Javelin', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['thrown'] },
-  { name: 'Mace', weight: 4, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0 },
-  { name: 'Quarterstaff', weight: 4, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, properties: ['versatile'] },
-  { name: 'Rapier', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['finesse'] },
-  { name: 'Greatsword', weight: 6, quantity: 1, category: 'weapon', damageDie: 12, attackBonus: 0, damageBonus: 0, properties: ['heavy', 'two-handed'] },
-  { name: 'Light Crossbow', weight: 5, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['ranged', 'two-handed'] },
-  { name: 'Warhammer', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, properties: ['versatile'] },
+  // Melee Weapons
+  { name: 'Longsword', weight: 3, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, range: 5, properties: ['versatile'] },
+  { name: 'Dagger', weight: 1, quantity: 1, category: 'weapon', damageDie: 4, attackBonus: 0, damageBonus: 0, range: 5, longRange: 20, properties: ['finesse', 'light', 'thrown'] },
+  { name: 'Greataxe', weight: 7, quantity: 1, category: 'weapon', damageDie: 12, attackBonus: 0, damageBonus: 0, range: 5, properties: ['heavy', 'two-handed'] },
+  { name: 'Handaxe', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, range: 5, longRange: 20, properties: ['light', 'thrown'] },
+  { name: 'Javelin', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, range: 5, longRange: 30, properties: ['thrown'] },
+  { name: 'Mace', weight: 4, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, range: 5 },
+  { name: 'Quarterstaff', weight: 4, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, range: 5, properties: ['versatile'] },
+  { name: 'Rapier', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, range: 5, properties: ['finesse'] },
+  { name: 'Greatsword', weight: 6, quantity: 1, category: 'weapon', damageDie: 6, damageDiceCount: 2, attackBonus: 0, damageBonus: 0, range: 5, properties: ['heavy', 'two-handed'] },
+  { name: 'Warhammer', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, range: 5, properties: ['versatile'] },
+  { name: 'Glaive', weight: 6, quantity: 1, category: 'weapon', damageDie: 10, attackBonus: 0, damageBonus: 0, range: 10, properties: ['heavy', 'two-handed', 'reach'] },
+  { name: 'Shortsword', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, range: 5, properties: ['finesse', 'light'] },
+  { name: 'Flail', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, range: 5 },
+  { name: 'Morningstar', weight: 4, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, range: 5 },
 
-  // Armor — acBonus stacks on base 10+DEX
+  // Ranged Weapons
+  { name: 'Shortbow', weight: 2, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, range: 80, longRange: 320, properties: ['ranged', 'two-handed'] },
+  { name: 'Longbow', weight: 2, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, range: 150, longRange: 600, properties: ['ranged', 'heavy', 'two-handed'] },
+  { name: 'Light Crossbow', weight: 5, quantity: 1, category: 'weapon', damageDie: 8, attackBonus: 0, damageBonus: 0, range: 80, longRange: 320, properties: ['ranged', 'two-handed'] },
+  { name: 'Hand Crossbow', weight: 3, quantity: 1, category: 'weapon', damageDie: 6, attackBonus: 0, damageBonus: 0, range: 30, longRange: 120, properties: ['ranged', 'light'] },
+  { name: 'Heavy Crossbow', weight: 18, quantity: 1, category: 'weapon', damageDie: 10, attackBonus: 0, damageBonus: 0, range: 100, longRange: 400, properties: ['ranged', 'heavy', 'two-handed'] },
+
+  // Armor
   { name: 'Chain Mail', weight: 55, quantity: 1, category: 'armor', acBonus: 6, properties: ['heavy'] },
   { name: 'Leather Armor', weight: 10, quantity: 1, category: 'armor', acBonus: 1, properties: ['light'] },
   { name: 'Scale Mail', weight: 45, quantity: 1, category: 'armor', acBonus: 4, properties: ['medium'] },
@@ -125,6 +151,7 @@ export const EQUIPMENT_CATALOG: Omit<EquipmentItem, 'id' | 'equipped'>[] = [
   { name: 'Studded Leather', weight: 13, quantity: 1, category: 'armor', acBonus: 2, properties: ['light'] },
   { name: 'Half Plate', weight: 40, quantity: 1, category: 'armor', acBonus: 5, properties: ['medium'] },
   { name: 'Plate', weight: 65, quantity: 1, category: 'armor', acBonus: 8, properties: ['heavy'] },
+  { name: 'Breastplate', weight: 20, quantity: 1, category: 'armor', acBonus: 4, properties: ['medium'] },
 
   // Gear
   { name: 'Backpack', weight: 5, quantity: 1, category: 'gear' },
@@ -134,6 +161,7 @@ export const EQUIPMENT_CATALOG: Omit<EquipmentItem, 'id' | 'equipped'>[] = [
 
   // Consumables
   { name: 'Rations (1 day)', weight: 2, quantity: 5, category: 'consumable' },
-  { name: 'Healing Potion', weight: 0.5, quantity: 1, category: 'consumable', damageDie: 4, damageBonus: 4, properties: ['healing'] },
+  { name: 'Healing Potion', weight: 0.5, quantity: 1, category: 'consumable', damageDie: 4, damageDiceCount: 2, damageBonus: 2, properties: ['healing'] },
+  { name: 'Greater Healing Potion', weight: 0.5, quantity: 1, category: 'consumable', damageDie: 4, damageDiceCount: 4, damageBonus: 4, properties: ['healing'] },
   { name: 'Antitoxin', weight: 0, quantity: 1, category: 'consumable' },
 ];

@@ -300,6 +300,15 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     if (connected) broadcastDamage(tokenId, damage);
   };
 
+  const healToken = (tokenId: string, amount: number) => {
+    setTokens(prev => prev.map(t => {
+      if (t.id !== tokenId) return t;
+      const currentHp = t.hp ?? t.maxHp ?? 10;
+      const maxHp = t.maxHp ?? 10;
+      return { ...t, hp: Math.min(maxHp, currentHp + amount) };
+    }));
+  };
+
   const addCharacterToken = (char: Character) => {
     const token: MapToken = {
       id: `token-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
@@ -712,6 +721,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             ftPerCell={ftPerCell}
             onMoveToken={moveToken}
             onDamageToken={damageToken}
+            onHealToken={healToken}
             onEndTurn={() => {
               setCombatMovementUsed(0);
               setCombatMoving(false);
