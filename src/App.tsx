@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { DiceFloatingButton } from "@/components/DiceFloatingButton";
 import { GameProvider } from "@/lib/GameContext";
 import { MultiplayerProvider } from "@/lib/MultiplayerContext";
+import { CharacterSyncProvider } from "@/lib/CharacterSyncContext";
 import Index from "./pages/Index";
 import CreateCharacter from "./pages/CreateCharacter";
 import CharacterView from "./pages/CharacterView";
