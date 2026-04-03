@@ -85,6 +85,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
   const { allCharacters } = useCharacterSync();
   const characters = useRef<Character[]>(allCharacters);
+  useEffect(() => { characters.current = allCharacters; }, [allCharacters]);
 
   // Multiplayer sync
   const getState = useCallback((): MapSyncState => ({
