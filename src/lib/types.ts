@@ -22,11 +22,14 @@ export interface EquipmentItem {
   equipped: boolean;
   category: 'weapon' | 'armor' | 'gear' | 'consumable';
   // Combat stats
-  attackBonus?: number;    // bonus to attack roll
-  damageBonus?: number;    // bonus to damage roll
+  attackBonus?: number;    // magic/enhancement bonus to attack roll
+  damageBonus?: number;    // magic/enhancement bonus to damage roll
   damageDie?: number;      // e.g. 8 = 1d8
+  damageDiceCount?: number; // e.g. 2 = 2d8 (defaults to 1)
   acBonus?: number;        // bonus to AC when equipped
-  properties?: string[];   // e.g. ['finesse', 'light', 'two-handed']
+  range?: number;          // range in feet (default 5 for melee)
+  longRange?: number;      // long range in feet (disadvantage)
+  properties?: string[];   // e.g. ['finesse', 'light', 'two-handed', 'ranged', 'thrown', 'heavy', 'reach', 'versatile', 'healing']
 }
 
 export interface Character {
