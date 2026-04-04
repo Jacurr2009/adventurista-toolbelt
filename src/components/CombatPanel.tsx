@@ -663,7 +663,124 @@ export function CombatPanel({
           )}
         </AnimatePresence>
 
-        {/* Other Actions: Dodge, Dash, Disengage */}
+        {/* Cast Spell */}
+        {preparedSpells.length > 0 && (
+          <button
+            onClick={() => {
+              if (action === 'casting') {
+                setAction('idle');
+                setShowSpellSelect(false);
+                setSelectedSpell(null);
+              } else {
+                setAction('casting');
+                setShowSpellSelect(true);
+              }
+            }}
+            disabled={hasUsedAction && hasUsedBonusAction}
+            className={`tactical-card !p-2 flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold transition-colors ${
+              action === 'casting' ? 'border-purple-400 text-purple-400' : ''
+            } disabled:opacity-30`}
+          >
+            <BookOpen className="w-3 h-3" />
+            {action === 'casting' ? 'Select spell & target' : 'Cast Spell'}
+          </button>
+        )}
+
+        {/* Spell selection */}
+        <AnimatePresence>
+          {action === 'casting' && showSpellSelect && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1 pl-2 max-h-48 overflow-y-auto"
+            >
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground py-1">Choose Spell</p>
+              {cantrips.length > 0 && (
+                <p className="text-[8px] uppercase tracking-widest text-muted-foreground/60 px-1">Cantrips</p>
+              )}
+              {cantrips.map(spell => (
+                <SpellCastButton key={spell.id} spell={spell} canCast={!hasUsedAction}
+                  onClick={() => {
+                    setSelectedSpell(spell);
+                    setShowSpellSelect(false);
+                    if (spell.targetType === 'self') performSpellCast(spell);
+                    else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                  }}
+                />
+              ))}
+              {leveledSpells.length > 0 && (
+                <p className="text-[8px] uppercase tracking-widest text-muted-foreground/60 px-1 mt-1">Leveled</p>
+              )}
+              {leveledSpells.map(spell => {
+                const castable = canCastSpell(spell);
+                const isBonusSpell = spell.castTime === 'bonus action';
+                const blocked = isBonusSpell ? hasUsedBonusAction : hasUsedAction;
+                return (
+                  <SpellCastButton key={spell.id} spell={spell} canCast={castable && !blocked}
+                    onClick={() => {
+                      if (!castable || blocked) return;
+                      setSelectedSpell(spell);
+                      setShowSpellSelect(false);
+                      if (spell.targetType === 'self') performSpellCast(spell);
+                      else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                    }}
+                  />
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Spell target selection (single-target spells) */}
+        <AnimatePresence>
+          {action === 'casting' && !showSpellSelect && selectedSpell && selectedSpell.targetType === 'single' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1 pl-2"
+            >
+              <div className="flex items-center justify-between py-1">
+                <p className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                  Casting: <span className="text-purple-400">{selectedSpell.name}</span>
+                </p>
+                <button onClick={() => setShowSpellSelect(true)}
+                  className="text-[8px] text-muted-foreground hover:text-foreground">
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </div>
+              {(selectedSpell.healing ? [...allies, { ...token, distance: 0 }] : enemies).map(target => {
+                const spellRange = selectedSpell.range === -1 ? 5 : selectedSpell.range;
+                const dist = 'distance' in target ? (target as any).distance : 0;
+                const inRange = dist <= spellRange;
+                return (
+                  <button
+                    key={target.id}
+                    onClick={() => inRange && performSpellCast(selectedSpell, target.id)}
+                    disabled={!inRange}
+                    className="w-full tactical-card !p-2 flex items-center gap-2 text-[10px] font-mono text-foreground hover:border-purple-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-background shrink-0"
+                      style={{ backgroundColor: target.color }}
+                    >
+                      {target.label[0]}
+                    </div>
+                    <span className="flex-1 text-left">{target.label}</span>
+                    <div className="flex items-center gap-1.5 text-[8px]">
+                      <span className="text-muted-foreground">{dist}ft</span>
+                      {target.hp !== undefined && (
+                        <span className="text-muted-foreground">{target.hp}HP</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {!hasUsedAction && action === 'idle' && (
           <div className="flex gap-1">
             <button
