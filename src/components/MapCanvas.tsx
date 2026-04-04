@@ -239,6 +239,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   };
 
   const handleTokenPointerUp = () => {
+    if (draggingToken && connected) {
+      const token = tokens.find(t => t.id === draggingToken);
+      if (token) {
+        broadcastTokenMove(draggingToken, token.x, token.y);
+      }
+    }
     setDraggingToken(null);
   };
 
