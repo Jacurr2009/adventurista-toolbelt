@@ -900,6 +900,45 @@ export function CombatPanel({
           )}
         </AnimatePresence>
 
+        {/* Spell result */}
+        <AnimatePresence>
+          {lastSpellResult && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className={`tactical-card !p-2 text-[10px] font-mono ${
+                lastSpellResult.healing ? 'border-secondary' : lastSpellResult.hit === false ? 'border-destructive' : 'border-purple-400'
+              }`}
+            >
+              <div className="flex items-center gap-1 mb-1">
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                <span className="text-purple-400 font-bold">{lastSpellResult.spellName}</span>
+                {lastSpellResult.natural20 && <span className="text-accent">CRITICAL!</span>}
+              </div>
+              {lastSpellResult.naturalRoll !== undefined && (
+                <p className="text-muted-foreground">
+                  d20({lastSpellResult.naturalRoll}) → {lastSpellResult.total} vs AC {lastSpellResult.targetAC}
+                  {lastSpellResult.hit ? ' — HIT!' : ' — MISS!'}
+                </p>
+              )}
+              {lastSpellResult.saveType && (
+                <p className="text-muted-foreground">
+                  DC {spellSaveDC} {lastSpellResult.saveType} save
+                </p>
+              )}
+              <p className="text-muted-foreground text-[9px]">
+                Targets: {lastSpellResult.targets.join(', ')}
+              </p>
+              {lastSpellResult.damage > 0 && (
+                <p className="text-foreground font-bold mt-1">
+                  {lastSpellResult.healing ? 'Healed' : 'Dealt'} {lastSpellResult.damage} {lastSpellResult.damageType}
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* End Turn */}
         <button
           onClick={handleEndTurn}
@@ -910,5 +949,30 @@ export function CombatPanel({
         </button>
       </div>
     </div>
+  );
+}
+
+function SpellCastButton({ spell, canCast, onClick }: { spell: Spell; canCast: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!canCast}
+      className="w-full tactical-card !p-2 flex items-center gap-2 text-[10px] font-mono text-foreground hover:border-purple-400 disabled:opacity-30 disabled:cursor-not-allowed"
+    >
+      <Sparkles className="w-3 h-3 text-purple-400" />
+      <div className="flex-1 text-left">
+        <span>{spell.name}</span>
+        <div className="text-[8px] text-muted-foreground flex gap-2">
+          {spell.level === 0 ? <span>Cantrip</span> : <span>Lvl {spell.level}</span>}
+          <span>{spell.castTime}</span>
+          {spell.damageDie && (
+            <span className={spell.healing ? 'text-secondary' : 'text-accent'}>
+              {spell.damageDiceCount || 1}d{spell.damageDie} {spell.damageType}
+            </span>
+          )}
+          <span>{spell.range === 0 ? 'Self' : spell.range === -1 ? 'Touch' : `${spell.range}ft`}</span>
+        </div>
+      </div>
+    </button>
   );
 }
