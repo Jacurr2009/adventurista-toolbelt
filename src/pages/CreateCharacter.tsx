@@ -24,7 +24,9 @@ export default function CreateCharacter() {
     ABILITY_NAMES.map(n => ({ name: n, score: 10 }))
   );
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
+  const [spells, setSpells] = useState<CharacterSpellState>(getDefaultSpellState());
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [spellDrawerOpen, setSpellDrawerOpen] = useState(false);
 
   const conMod = getModifier(abilities.find(a => a.name === 'CON')?.score ?? 10);
   const hitDie = CLASS_HIT_DIE[dndClass];
