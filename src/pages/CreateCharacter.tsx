@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Character, DND_CLASSES, DND_RACES, ABILITY_NAMES,
-  AbilityScore, EquipmentItem, CLASS_HIT_DIE, getModifier
+  AbilityScore, EquipmentItem, CLASS_HIT_DIE, getModifier, getDefaultSpellState
 } from '@/lib/types';
+import { NON_CASTERS, CharacterSpellState } from '@/lib/spells';
 import { addCharacter } from '@/lib/store';
 import { StatBlock } from '@/components/StatBlock';
 import { EquipmentDrawer } from '@/components/EquipmentDrawer';
 import { EquipmentRow } from '@/components/EquipmentRow';
-import { Plus } from 'lucide-react';
+import { SpellDrawer } from '@/components/SpellDrawer';
+import { SpellSlotTracker } from '@/components/SpellSlotTracker';
+import { Plus, BookOpen } from 'lucide-react';
 
 export default function CreateCharacter() {
   const navigate = useNavigate();
