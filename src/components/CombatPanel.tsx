@@ -325,14 +325,12 @@ export function CombatPanel({
       const slotLevel = getLowestAvailableSlot(spell.level);
       if (!slotLevel) return;
       const key = getSlotKey(slotLevel);
-      const updatedSpells: CharacterSpellState = {
-        ...spellState,
-        usedSlots: { ...spellState.usedSlots, [key]: spellState.usedSlots[key] + 1 },
-      };
-      // Update character spell state via sync
-      const { allCharacters } = useCharacterSync.getState?.() || {};
-      // We'll just track locally for this combat session
-      charData.spells = updatedSpells;
+      if (charData.spells) {
+        charData.spells = {
+          ...charData.spells,
+          usedSlots: { ...charData.spells.usedSlots, [key]: charData.spells.usedSlots[key] + 1 },
+        };
+      }
     }
 
     // AoE spells
