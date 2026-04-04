@@ -313,6 +313,152 @@ export function CombatPanel({
     setAction('idle');
   };
 
+  const performSpellCast = (spell: Spell, targetId?: string) => {
+    const isBonusAction = spell.castTime === 'bonus action';
+    const diceCount = spell.cantripScaling && charData
+      ? getCantripDiceCount(charData.level)
+      : (spell.damageDiceCount || 1);
+    const spellRange = spell.range === -1 ? 5 : spell.range;
+
+    // Consume spell slot
+    if (spell.level > 0 && charData) {
+      const slotLevel = getLowestAvailableSlot(spell.level);
+      if (!slotLevel) return;
+      const key = getSlotKey(slotLevel);
+      const updatedSpells: CharacterSpellState = {
+        ...spellState,
+        usedSlots: { ...spellState.usedSlots, [key]: spellState.usedSlots[key] + 1 },
+      };
+      // Update character spell state via sync
+      const { allCharacters } = useCharacterSync.getState?.() || {};
+      // We'll just track locally for this combat session
+      charData.spells = updatedSpells;
+    }
+
+    // AoE spells
+    if (spell.targetType.startsWith('aoe')) {
+      const aoeTargets = allTokens.filter(t => {
+        if (t.id === token.id && !spell.healing) return false;
+        if (spell.healing && t.type !== token.type) return false;
+        if (!spell.healing && t.type === token.type) return false;
+        const dist = getDistanceFt(token.x, token.y, t.x, t.y, gridSize, ftPerCell);
+        const radius = spell.aoeRadius || spell.aoeLength || 20;
+        return dist <= radius + spellRange;
+      });
+
+      let totalDamage = 0;
+      const targetNames: string[] = [];
+
+      aoeTargets.forEach(target => {
+        let dmg = 0;
+        if (spell.damageDie) {
+          for (let i = 0; i < diceCount; i++) {
+            dmg += Math.floor(Math.random() * spell.damageDie) + 1;
+          }
+          dmg += spellcastingMod;
+
+          // Save
+          if (spell.saveAbility !== 'none') {
+            const targetChar = allCharacters.find(c => c.name === target.label);
+            const saveMod = targetChar
+              ? getModifier(targetChar.abilities.find(a => a.name === spell.saveAbility)?.score ?? 10)
+              : 0;
+            const saveRoll = Math.floor(Math.random() * 20) + 1 + saveMod;
+            if (saveRoll >= spellSaveDC) {
+              dmg = spell.halfDamageOnSave ? Math.floor(dmg / 2) : 0;
+            }
+          }
+        }
+
+        dmg = Math.max(0, dmg);
+        if (spell.healing) {
+          onHealToken?.(target.id, dmg);
+        } else {
+          onDamageToken(target.id, dmg);
+        }
+        totalDamage += dmg;
+        targetNames.push(target.label);
+      });
+
+      setLastSpellResult({
+        spellName: spell.name, damage: totalDamage, damageType: spell.damageType || '',
+        targets: targetNames, saveType: spell.saveAbility !== 'none' ? spell.saveAbility : undefined,
+        healing: spell.healing,
+      });
+    }
+    // Single target
+    else if (targetId) {
+      const target = allTokens.find(t => t.id === targetId);
+      if (!target) return;
+
+      let damage = 0;
+      let hit = true;
+      let naturalRoll: number | undefined;
+      let attackTotal: number | undefined;
+      let targetAC: number | undefined;
+      let natural20 = false;
+
+      if (spell.isAttackRoll) {
+        naturalRoll = Math.floor(Math.random() * 20) + 1;
+        attackTotal = naturalRoll + spellAttackBonus;
+        const targetChar = allCharacters.find(c => c.name === target.label);
+        targetAC = targetChar ? getEquippedAC(targetChar) : (target.type === 'monster' ? 12 : 10);
+        natural20 = naturalRoll === 20;
+        hit = natural20 || (naturalRoll !== 1 && attackTotal >= targetAC);
+      } else if (spell.saveAbility !== 'none') {
+        const targetChar = allCharacters.find(c => c.name === target.label);
+        const saveMod = targetChar
+          ? getModifier(targetChar.abilities.find(a => a.name === spell.saveAbility)?.score ?? 10)
+          : 0;
+        const saveRoll = Math.floor(Math.random() * 20) + 1 + saveMod;
+        hit = saveRoll < spellSaveDC;
+        if (!hit && spell.halfDamageOnSave) {
+          // half damage still applies below
+        }
+      }
+
+      if (spell.damageDie && (hit || spell.halfDamageOnSave)) {
+        const effectiveDice = natural20 ? diceCount * 2 : diceCount;
+        for (let i = 0; i < effectiveDice; i++) {
+          damage += Math.floor(Math.random() * spell.damageDie) + 1;
+        }
+        damage += spellcastingMod;
+        if (!hit && spell.halfDamageOnSave) damage = Math.floor(damage / 2);
+        damage = Math.max(1, damage);
+
+        if (spell.healing) {
+          onHealToken?.(target.id, damage);
+        } else {
+          onDamageToken(target.id, damage);
+        }
+      }
+
+      setLastSpellResult({
+        spellName: spell.name, hit, naturalRoll, total: attackTotal,
+        targetAC, damage, damageType: spell.damageType || '',
+        targets: [target.label], saveType: spell.saveAbility !== 'none' ? spell.saveAbility : undefined,
+        healing: spell.healing, natural20,
+      });
+    }
+    // Self-targeting spells (buffs)
+    else {
+      setLastSpellResult({
+        spellName: spell.name, damage: 0, damageType: '',
+        targets: ['Self'], healing: false,
+      });
+    }
+
+    if (isBonusAction) {
+      setHasUsedBonusAction(true);
+    } else {
+      setHasUsedAction(true);
+    }
+    setSelectedSpell(null);
+    setShowSpellSelect(false);
+    setAction('idle');
+    onClearAoe?.();
+  };
+
   const handleEndTurn = () => {
     setAction('idle');
     onSetMovementUsed(0);
@@ -320,10 +466,13 @@ export function CombatPanel({
     setHasUsedBonusAction(false);
     setLastAttack(null);
     setLastHeal(null);
+    setLastSpellResult(null);
     setSelectedWeapon(null);
+    setSelectedSpell(null);
     setIsDodging(false);
     setHasDashed(false);
     onSetCombatMoving(false);
+    onClearAoe?.();
     onEndTurn();
   };
 
