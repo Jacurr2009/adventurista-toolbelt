@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Character, formatModifier, getModifier, xpForLevel, getEquippedAC } from '@/lib/types';
+import { Character, formatModifier, getModifier, xpForLevel, getEquippedAC, getDefaultSpellState } from '@/lib/types';
 import { getCharacters, updateCharacter, deleteCharacter } from '@/lib/store';
+import { NON_CASTERS } from '@/lib/spells';
 import { StatBlock } from '@/components/StatBlock';
 import { HpBar } from '@/components/HpBar';
 import { EquipmentRow } from '@/components/EquipmentRow';
 import { EquipmentDrawer } from '@/components/EquipmentDrawer';
-import { ArrowLeft, Plus, Trash2, Edit2, Save, Camera } from 'lucide-react';
+import { SpellDrawer } from '@/components/SpellDrawer';
+import { SpellSlotTracker } from '@/components/SpellSlotTracker';
+import { ArrowLeft, Plus, Trash2, Edit2, Save, Camera, BookOpen } from 'lucide-react';
 import { useRef } from 'react';
 
 export default function CharacterView() {
@@ -16,6 +19,7 @@ export default function CharacterView() {
   const [char, setChar] = useState<Character | null>(null);
   const [editing, setEditing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [spellDrawerOpen, setSpellDrawerOpen] = useState(false);
   const iconInputRef = useRef<HTMLInputElement>(null);
 
   const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,6 +248,35 @@ export default function CharacterView() {
         </div>
       </section>
 
+      {/* Spells */}
+      {!NON_CASTERS.includes(char.class) && (
+        <section className="mt-4 md:mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="tactical-header flex items-center gap-2">
+              <BookOpen className="w-3.5 h-3.5" /> SPELLS
+            </p>
+            {editing && (
+              <motion.button
+                onClick={() => setSpellDrawerOpen(true)}
+                className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground transition-colors"
+                whileTap={{ scale: 0.98 }}
+              >
+                <Plus className="w-3 h-3" /> LEARN SPELL
+              </motion.button>
+            )}
+          </div>
+          <div className="tactical-card">
+            <SpellSlotTracker
+              dndClass={char.class}
+              level={char.level}
+              spellState={char.spells || getDefaultSpellState()}
+              onUpdateSpellState={spells => save({ ...char, spells })}
+              editable={editing}
+            />
+          </div>
+        </section>
+      )}
+
       <EquipmentDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -251,6 +284,24 @@ export default function CharacterView() {
           save({ ...char, equipment: [...char.equipment, item] });
         }}
         existingIds={char.equipment.map(e => e.id)}
+      />
+
+      <SpellDrawer
+        open={spellDrawerOpen}
+        onClose={() => setSpellDrawerOpen(false)}
+        onAdd={spellId => {
+          const currentSpells = char.spells || getDefaultSpellState();
+          save({
+            ...char,
+            spells: {
+              ...currentSpells,
+              knownSpellIds: [...currentSpells.knownSpellIds, spellId],
+              preparedSpellIds: [...currentSpells.preparedSpellIds, spellId],
+            },
+          });
+        }}
+        existingIds={(char.spells || getDefaultSpellState()).knownSpellIds}
+        dndClass={char.class}
       />
     </div>
   );

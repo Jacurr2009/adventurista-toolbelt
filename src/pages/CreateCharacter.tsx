@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Character, DND_CLASSES, DND_RACES, ABILITY_NAMES,
-  AbilityScore, EquipmentItem, CLASS_HIT_DIE, getModifier
+  AbilityScore, EquipmentItem, CLASS_HIT_DIE, getModifier, getDefaultSpellState
 } from '@/lib/types';
+import { NON_CASTERS, CharacterSpellState } from '@/lib/spells';
 import { addCharacter } from '@/lib/store';
 import { StatBlock } from '@/components/StatBlock';
 import { EquipmentDrawer } from '@/components/EquipmentDrawer';
 import { EquipmentRow } from '@/components/EquipmentRow';
-import { Plus } from 'lucide-react';
+import { SpellDrawer } from '@/components/SpellDrawer';
+import { SpellSlotTracker } from '@/components/SpellSlotTracker';
+import { Plus, BookOpen } from 'lucide-react';
 
 export default function CreateCharacter() {
   const navigate = useNavigate();
@@ -21,7 +24,9 @@ export default function CreateCharacter() {
     ABILITY_NAMES.map(n => ({ name: n, score: 10 }))
   );
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
+  const [spells, setSpells] = useState<CharacterSpellState>(getDefaultSpellState());
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [spellDrawerOpen, setSpellDrawerOpen] = useState(false);
 
   const conMod = getModifier(abilities.find(a => a.name === 'CON')?.score ?? 10);
   const hitDie = CLASS_HIT_DIE[dndClass];
@@ -43,6 +48,7 @@ export default function CreateCharacter() {
       speed: 30,
       abilities,
       equipment,
+      spells: NON_CASTERS.includes(dndClass) ? undefined : spells,
       createdAt: new Date().toISOString(),
     };
     addCharacter(char);
@@ -165,6 +171,33 @@ export default function CreateCharacter() {
         </div>
       </section>
 
+      {/* Spells */}
+      {!NON_CASTERS.includes(dndClass) && (
+        <section className="mb-4 md:mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="tactical-header flex items-center gap-2">
+              <BookOpen className="w-3.5 h-3.5" /> SPELLS
+            </p>
+            <motion.button
+              onClick={() => setSpellDrawerOpen(true)}
+              className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground transition-colors"
+              whileTap={{ scale: 0.98 }}
+            >
+              <Plus className="w-3 h-3" /> LEARN SPELL
+            </motion.button>
+          </div>
+          <div className="tactical-card">
+            <SpellSlotTracker
+              dndClass={dndClass}
+              level={level}
+              spellState={spells}
+              onUpdateSpellState={setSpells}
+              editable
+            />
+          </div>
+        </section>
+      )}
+
       {/* Create */}
       <motion.button
         onClick={handleCreate}
@@ -182,6 +215,20 @@ export default function CreateCharacter() {
           setEquipment(prev => [...prev, item]);
         }}
         existingIds={equipment.map(e => e.id)}
+      />
+
+      <SpellDrawer
+        open={spellDrawerOpen}
+        onClose={() => setSpellDrawerOpen(false)}
+        onAdd={spellId => {
+          setSpells(prev => ({
+            ...prev,
+            knownSpellIds: [...prev.knownSpellIds, spellId],
+            preparedSpellIds: [...prev.preparedSpellIds, spellId],
+          }));
+        }}
+        existingIds={spells.knownSpellIds}
+        dndClass={dndClass}
       />
     </div>
   );

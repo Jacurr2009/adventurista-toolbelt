@@ -1,3 +1,5 @@
+import { CharacterSpellState, emptyUsedSlots } from './spells';
+
 export type AbilityName = 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
 
 export interface AbilityScore {
@@ -46,7 +48,12 @@ export interface Character {
   abilities: AbilityScore[];
   equipment: EquipmentItem[];
   icon?: string; // base64 data URL for character portrait
+  spells?: CharacterSpellState;
   createdAt: string;
+}
+
+export function getDefaultSpellState(): CharacterSpellState {
+  return { knownSpellIds: [], preparedSpellIds: [], usedSlots: emptyUsedSlots() };
 }
 
 export interface CampaignResource {

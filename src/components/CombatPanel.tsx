@@ -2,14 +2,18 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Footprints, Swords, Shield, XCircle, Check, ChevronDown,
-  Zap, Heart, ArrowRight, Wind, ShieldOff, Activity,
+  Zap, Heart, ArrowRight, Wind, ShieldOff, Activity, BookOpen, Sparkles,
 } from 'lucide-react';
 import { MapToken } from './MapCanvas';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import {
   getModifier, getEquippedAC, getEquippedWeapons,
-  EquipmentItem, getProficiencyBonus, getDistanceFt,
+  EquipmentItem, getProficiencyBonus, getDistanceFt, getDefaultSpellState,
 } from '@/lib/types';
+import {
+  Spell, getSpellById, getSpellcastingAbility, getSlotKey, getSpellSlots,
+  getCantripDiceCount, CharacterSpellState,
+} from '@/lib/spells';
 
 interface CombatPanelProps {
   token: MapToken;
@@ -25,9 +29,11 @@ interface CombatPanelProps {
   onSetMovementUsed: (ft: number) => void;
   onSetCombatMoving: (moving: boolean) => void;
   combatMoving: boolean;
+  onShowAoe?: (x: number, y: number, radius: number) => void;
+  onClearAoe?: () => void;
 }
 
-type CombatAction = 'idle' | 'moving' | 'attacking' | 'dodging' | 'dashing' | 'disengaging' | 'using-item';
+type CombatAction = 'idle' | 'moving' | 'attacking' | 'dodging' | 'dashing' | 'disengaging' | 'using-item' | 'casting';
 
 interface AttackResult {
   attackRoll: number;
@@ -58,6 +64,8 @@ export function CombatPanel({
   onSetMovementUsed,
   onSetCombatMoving,
   combatMoving,
+  onShowAoe,
+  onClearAoe,
 }: CombatPanelProps) {
   const [action, setAction] = useState<CombatAction>('idle');
   const [hasUsedAction, setHasUsedAction] = useState(false);
@@ -67,6 +75,13 @@ export function CombatPanel({
   const [showWeaponSelect, setShowWeaponSelect] = useState(false);
   const [isDodging, setIsDodging] = useState(false);
   const [lastHeal, setLastHeal] = useState<{ amount: number; item: string } | null>(null);
+  const [selectedSpell, setSelectedSpell] = useState<Spell | null>(null);
+  const [showSpellSelect, setShowSpellSelect] = useState(false);
+  const [lastSpellResult, setLastSpellResult] = useState<{
+    spellName: string; hit?: boolean; naturalRoll?: number; total?: number;
+    targetAC?: number; damage: number; damageType: string; targets: string[];
+    saveType?: string; healing?: boolean; natural20?: boolean;
+  } | null>(null);
 
   const { allCharacters } = useCharacterSync();
   const charData = allCharacters.find(c => c.name === token.label);
@@ -90,6 +105,45 @@ export function CombatPanel({
   };
 
   const availableWeapons = equippedWeapons.length > 0 ? equippedWeapons : [unarmedStrike];
+
+  // Spell data
+  const spellState = charData?.spells || getDefaultSpellState();
+  const spellcastingAbility = charData ? getSpellcastingAbility(charData.class) : 'INT';
+  const spellcastingMod = charData
+    ? getModifier(charData.abilities.find(a => a.name === spellcastingAbility)?.score ?? 10)
+    : 0;
+  const spellSaveDC = 8 + profBonus + spellcastingMod;
+  const spellAttackBonus = profBonus + spellcastingMod;
+  const maxSlots = charData ? getSpellSlots(charData.class, charData.level) : null;
+
+  const preparedSpells = useMemo(() => {
+    return spellState.preparedSpellIds
+      .map(id => getSpellById(id))
+      .filter(Boolean) as Spell[];
+  }, [spellState.preparedSpellIds]);
+
+  const cantrips = preparedSpells.filter(s => s.level === 0);
+  const leveledSpells = preparedSpells.filter(s => s.level > 0);
+
+  const canCastSpell = (spell: Spell): boolean => {
+    if (spell.level === 0) return true;
+    if (!maxSlots) return false;
+    // Check if any slot of this level or higher is available
+    for (let l = spell.level; l <= 9; l++) {
+      const key = getSlotKey(l);
+      if (maxSlots[key] - spellState.usedSlots[key] > 0) return true;
+    }
+    return false;
+  };
+
+  const getLowestAvailableSlot = (minLevel: number): number | null => {
+    if (!maxSlots) return null;
+    for (let l = minLevel; l <= 9; l++) {
+      const key = getSlotKey(l);
+      if (maxSlots[key] - spellState.usedSlots[key] > 0) return l;
+    }
+    return null;
+  };
 
   // Consumables that can be used (healing potions etc.)
   const usableItems = charData?.equipment.filter(
@@ -259,6 +313,150 @@ export function CombatPanel({
     setAction('idle');
   };
 
+  const performSpellCast = (spell: Spell, targetId?: string) => {
+    const isBonusAction = spell.castTime === 'bonus action';
+    const diceCount = spell.cantripScaling && charData
+      ? getCantripDiceCount(charData.level)
+      : (spell.damageDiceCount || 1);
+    const spellRange = spell.range === -1 ? 5 : spell.range;
+
+    // Consume spell slot
+    if (spell.level > 0 && charData) {
+      const slotLevel = getLowestAvailableSlot(spell.level);
+      if (!slotLevel) return;
+      const key = getSlotKey(slotLevel);
+      if (charData.spells) {
+        charData.spells = {
+          ...charData.spells,
+          usedSlots: { ...charData.spells.usedSlots, [key]: charData.spells.usedSlots[key] + 1 },
+        };
+      }
+    }
+
+    // AoE spells
+    if (spell.targetType.startsWith('aoe')) {
+      const aoeTargets = allTokens.filter(t => {
+        if (t.id === token.id && !spell.healing) return false;
+        if (spell.healing && t.type !== token.type) return false;
+        if (!spell.healing && t.type === token.type) return false;
+        const dist = getDistanceFt(token.x, token.y, t.x, t.y, gridSize, ftPerCell);
+        const radius = spell.aoeRadius || spell.aoeLength || 20;
+        return dist <= radius + spellRange;
+      });
+
+      let totalDamage = 0;
+      const targetNames: string[] = [];
+
+      aoeTargets.forEach(target => {
+        let dmg = 0;
+        if (spell.damageDie) {
+          for (let i = 0; i < diceCount; i++) {
+            dmg += Math.floor(Math.random() * spell.damageDie) + 1;
+          }
+          dmg += spellcastingMod;
+
+          // Save
+          if (spell.saveAbility !== 'none') {
+            const targetChar = allCharacters.find(c => c.name === target.label);
+            const saveMod = targetChar
+              ? getModifier(targetChar.abilities.find(a => a.name === spell.saveAbility)?.score ?? 10)
+              : 0;
+            const saveRoll = Math.floor(Math.random() * 20) + 1 + saveMod;
+            if (saveRoll >= spellSaveDC) {
+              dmg = spell.halfDamageOnSave ? Math.floor(dmg / 2) : 0;
+            }
+          }
+        }
+
+        dmg = Math.max(0, dmg);
+        if (spell.healing) {
+          onHealToken?.(target.id, dmg);
+        } else {
+          onDamageToken(target.id, dmg);
+        }
+        totalDamage += dmg;
+        targetNames.push(target.label);
+      });
+
+      setLastSpellResult({
+        spellName: spell.name, damage: totalDamage, damageType: spell.damageType || '',
+        targets: targetNames, saveType: spell.saveAbility !== 'none' ? spell.saveAbility : undefined,
+        healing: spell.healing,
+      });
+    }
+    // Single target
+    else if (targetId) {
+      const target = allTokens.find(t => t.id === targetId);
+      if (!target) return;
+
+      let damage = 0;
+      let hit = true;
+      let naturalRoll: number | undefined;
+      let attackTotal: number | undefined;
+      let targetAC: number | undefined;
+      let natural20 = false;
+
+      if (spell.isAttackRoll) {
+        naturalRoll = Math.floor(Math.random() * 20) + 1;
+        attackTotal = naturalRoll + spellAttackBonus;
+        const targetChar = allCharacters.find(c => c.name === target.label);
+        targetAC = targetChar ? getEquippedAC(targetChar) : (target.type === 'monster' ? 12 : 10);
+        natural20 = naturalRoll === 20;
+        hit = natural20 || (naturalRoll !== 1 && attackTotal >= targetAC);
+      } else if (spell.saveAbility !== 'none') {
+        const targetChar = allCharacters.find(c => c.name === target.label);
+        const saveMod = targetChar
+          ? getModifier(targetChar.abilities.find(a => a.name === spell.saveAbility)?.score ?? 10)
+          : 0;
+        const saveRoll = Math.floor(Math.random() * 20) + 1 + saveMod;
+        hit = saveRoll < spellSaveDC;
+        if (!hit && spell.halfDamageOnSave) {
+          // half damage still applies below
+        }
+      }
+
+      if (spell.damageDie && (hit || spell.halfDamageOnSave)) {
+        const effectiveDice = natural20 ? diceCount * 2 : diceCount;
+        for (let i = 0; i < effectiveDice; i++) {
+          damage += Math.floor(Math.random() * spell.damageDie) + 1;
+        }
+        damage += spellcastingMod;
+        if (!hit && spell.halfDamageOnSave) damage = Math.floor(damage / 2);
+        damage = Math.max(1, damage);
+
+        if (spell.healing) {
+          onHealToken?.(target.id, damage);
+        } else {
+          onDamageToken(target.id, damage);
+        }
+      }
+
+      setLastSpellResult({
+        spellName: spell.name, hit, naturalRoll, total: attackTotal,
+        targetAC, damage, damageType: spell.damageType || '',
+        targets: [target.label], saveType: spell.saveAbility !== 'none' ? spell.saveAbility : undefined,
+        healing: spell.healing, natural20,
+      });
+    }
+    // Self-targeting spells (buffs)
+    else {
+      setLastSpellResult({
+        spellName: spell.name, damage: 0, damageType: '',
+        targets: ['Self'], healing: false,
+      });
+    }
+
+    if (isBonusAction) {
+      setHasUsedBonusAction(true);
+    } else {
+      setHasUsedAction(true);
+    }
+    setSelectedSpell(null);
+    setShowSpellSelect(false);
+    setAction('idle');
+    onClearAoe?.();
+  };
+
   const handleEndTurn = () => {
     setAction('idle');
     onSetMovementUsed(0);
@@ -266,10 +464,13 @@ export function CombatPanel({
     setHasUsedBonusAction(false);
     setLastAttack(null);
     setLastHeal(null);
+    setLastSpellResult(null);
     setSelectedWeapon(null);
+    setSelectedSpell(null);
     setIsDodging(false);
     setHasDashed(false);
     onSetCombatMoving(false);
+    onClearAoe?.();
     onEndTurn();
   };
 
@@ -462,7 +663,124 @@ export function CombatPanel({
           )}
         </AnimatePresence>
 
-        {/* Other Actions: Dodge, Dash, Disengage */}
+        {/* Cast Spell */}
+        {preparedSpells.length > 0 && (
+          <button
+            onClick={() => {
+              if (action === 'casting') {
+                setAction('idle');
+                setShowSpellSelect(false);
+                setSelectedSpell(null);
+              } else {
+                setAction('casting');
+                setShowSpellSelect(true);
+              }
+            }}
+            disabled={hasUsedAction && hasUsedBonusAction}
+            className={`tactical-card !p-2 flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold transition-colors ${
+              action === 'casting' ? 'border-purple-400 text-purple-400' : ''
+            } disabled:opacity-30`}
+          >
+            <BookOpen className="w-3 h-3" />
+            {action === 'casting' ? 'Select spell & target' : 'Cast Spell'}
+          </button>
+        )}
+
+        {/* Spell selection */}
+        <AnimatePresence>
+          {action === 'casting' && showSpellSelect && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1 pl-2 max-h-48 overflow-y-auto"
+            >
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground py-1">Choose Spell</p>
+              {cantrips.length > 0 && (
+                <p className="text-[8px] uppercase tracking-widest text-muted-foreground/60 px-1">Cantrips</p>
+              )}
+              {cantrips.map(spell => (
+                <SpellCastButton key={spell.id} spell={spell} canCast={!hasUsedAction}
+                  onClick={() => {
+                    setSelectedSpell(spell);
+                    setShowSpellSelect(false);
+                    if (spell.targetType === 'self') performSpellCast(spell);
+                    else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                  }}
+                />
+              ))}
+              {leveledSpells.length > 0 && (
+                <p className="text-[8px] uppercase tracking-widest text-muted-foreground/60 px-1 mt-1">Leveled</p>
+              )}
+              {leveledSpells.map(spell => {
+                const castable = canCastSpell(spell);
+                const isBonusSpell = spell.castTime === 'bonus action';
+                const blocked = isBonusSpell ? hasUsedBonusAction : hasUsedAction;
+                return (
+                  <SpellCastButton key={spell.id} spell={spell} canCast={castable && !blocked}
+                    onClick={() => {
+                      if (!castable || blocked) return;
+                      setSelectedSpell(spell);
+                      setShowSpellSelect(false);
+                      if (spell.targetType === 'self') performSpellCast(spell);
+                      else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                    }}
+                  />
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Spell target selection (single-target spells) */}
+        <AnimatePresence>
+          {action === 'casting' && !showSpellSelect && selectedSpell && selectedSpell.targetType === 'single' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1 pl-2"
+            >
+              <div className="flex items-center justify-between py-1">
+                <p className="text-[9px] uppercase tracking-widest text-muted-foreground">
+                  Casting: <span className="text-purple-400">{selectedSpell.name}</span>
+                </p>
+                <button onClick={() => setShowSpellSelect(true)}
+                  className="text-[8px] text-muted-foreground hover:text-foreground">
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </div>
+              {(selectedSpell.healing ? [...allies, { ...token, distance: 0 }] : enemies).map(target => {
+                const spellRange = selectedSpell.range === -1 ? 5 : selectedSpell.range;
+                const dist = 'distance' in target ? (target as any).distance : 0;
+                const inRange = dist <= spellRange;
+                return (
+                  <button
+                    key={target.id}
+                    onClick={() => inRange && performSpellCast(selectedSpell, target.id)}
+                    disabled={!inRange}
+                    className="w-full tactical-card !p-2 flex items-center gap-2 text-[10px] font-mono text-foreground hover:border-purple-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-background shrink-0"
+                      style={{ backgroundColor: target.color }}
+                    >
+                      {target.label[0]}
+                    </div>
+                    <span className="flex-1 text-left">{target.label}</span>
+                    <div className="flex items-center gap-1.5 text-[8px]">
+                      <span className="text-muted-foreground">{dist}ft</span>
+                      {target.hp !== undefined && (
+                        <span className="text-muted-foreground">{target.hp}HP</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {!hasUsedAction && action === 'idle' && (
           <div className="flex gap-1">
             <button
@@ -582,6 +900,45 @@ export function CombatPanel({
           )}
         </AnimatePresence>
 
+        {/* Spell result */}
+        <AnimatePresence>
+          {lastSpellResult && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className={`tactical-card !p-2 text-[10px] font-mono ${
+                lastSpellResult.healing ? 'border-secondary' : lastSpellResult.hit === false ? 'border-destructive' : 'border-purple-400'
+              }`}
+            >
+              <div className="flex items-center gap-1 mb-1">
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                <span className="text-purple-400 font-bold">{lastSpellResult.spellName}</span>
+                {lastSpellResult.natural20 && <span className="text-accent">CRITICAL!</span>}
+              </div>
+              {lastSpellResult.naturalRoll !== undefined && (
+                <p className="text-muted-foreground">
+                  d20({lastSpellResult.naturalRoll}) → {lastSpellResult.total} vs AC {lastSpellResult.targetAC}
+                  {lastSpellResult.hit ? ' — HIT!' : ' — MISS!'}
+                </p>
+              )}
+              {lastSpellResult.saveType && (
+                <p className="text-muted-foreground">
+                  DC {spellSaveDC} {lastSpellResult.saveType} save
+                </p>
+              )}
+              <p className="text-muted-foreground text-[9px]">
+                Targets: {lastSpellResult.targets.join(', ')}
+              </p>
+              {lastSpellResult.damage > 0 && (
+                <p className="text-foreground font-bold mt-1">
+                  {lastSpellResult.healing ? 'Healed' : 'Dealt'} {lastSpellResult.damage} {lastSpellResult.damageType}
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* End Turn */}
         <button
           onClick={handleEndTurn}
@@ -592,5 +949,30 @@ export function CombatPanel({
         </button>
       </div>
     </div>
+  );
+}
+
+function SpellCastButton({ spell, canCast, onClick }: { spell: Spell; canCast: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!canCast}
+      className="w-full tactical-card !p-2 flex items-center gap-2 text-[10px] font-mono text-foreground hover:border-purple-400 disabled:opacity-30 disabled:cursor-not-allowed"
+    >
+      <Sparkles className="w-3 h-3 text-purple-400" />
+      <div className="flex-1 text-left">
+        <span>{spell.name}</span>
+        <div className="text-[8px] text-muted-foreground flex gap-2">
+          {spell.level === 0 ? <span>Cantrip</span> : <span>Lvl {spell.level}</span>}
+          <span>{spell.castTime}</span>
+          {spell.damageDie && (
+            <span className={spell.healing ? 'text-secondary' : 'text-accent'}>
+              {spell.damageDiceCount || 1}d{spell.damageDie} {spell.damageType}
+            </span>
+          )}
+          <span>{spell.range === 0 ? 'Self' : spell.range === -1 ? 'Touch' : `${spell.range}ft`}</span>
+        </div>
+      </div>
+    </button>
   );
 }
