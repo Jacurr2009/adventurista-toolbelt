@@ -1,3 +1,5 @@
+import { CharacterSpellState, emptyUsedSlots } from './spells';
+
 export type AbilityName = 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
 
 export interface AbilityScore {
