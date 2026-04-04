@@ -196,7 +196,7 @@ function SpellRow({ spell, isPrepared, editable, onTogglePrepare, onRemove, comp
         {spell.name}
       </span>
       <div className="flex items-center gap-1.5 text-[8px] text-muted-foreground shrink-0">
-        {spell.castTime === 'bonus action' && <Zap className="w-2.5 h-2.5 text-yellow-400" title="Bonus Action" />}
+        {spell.castTime === 'bonus action' && <Zap className="w-2.5 h-2.5 text-yellow-400" />}
         {spell.concentration && <span className="text-yellow-400">C</span>}
         {spell.damageDie && (
           <span className={spell.healing ? 'text-secondary' : 'text-accent'}>
