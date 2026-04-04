@@ -48,6 +48,7 @@ export default function CreateCharacter() {
       speed: 30,
       abilities,
       equipment,
+      spells: NON_CASTERS.includes(dndClass) ? undefined : spells,
       createdAt: new Date().toISOString(),
     };
     addCharacter(char);
