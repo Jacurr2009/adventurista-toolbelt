@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Character, formatModifier, getModifier, xpForLevel, getEquippedAC } from '@/lib/types';
+import { Character, formatModifier, getModifier, xpForLevel, getEquippedAC, getDefaultSpellState } from '@/lib/types';
 import { getCharacters, updateCharacter, deleteCharacter } from '@/lib/store';
+import { NON_CASTERS } from '@/lib/spells';
 import { StatBlock } from '@/components/StatBlock';
 import { HpBar } from '@/components/HpBar';
 import { EquipmentRow } from '@/components/EquipmentRow';
 import { EquipmentDrawer } from '@/components/EquipmentDrawer';
-import { ArrowLeft, Plus, Trash2, Edit2, Save, Camera } from 'lucide-react';
+import { SpellDrawer } from '@/components/SpellDrawer';
+import { SpellSlotTracker } from '@/components/SpellSlotTracker';
+import { ArrowLeft, Plus, Trash2, Edit2, Save, Camera, BookOpen } from 'lucide-react';
 import { useRef } from 'react';
 
 export default function CharacterView() {
