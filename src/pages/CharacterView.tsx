@@ -248,6 +248,35 @@ export default function CharacterView() {
         </div>
       </section>
 
+      {/* Spells */}
+      {!NON_CASTERS.includes(char.class) && (
+        <section className="mt-4 md:mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="tactical-header flex items-center gap-2">
+              <BookOpen className="w-3.5 h-3.5" /> SPELLS
+            </p>
+            {editing && (
+              <motion.button
+                onClick={() => setSpellDrawerOpen(true)}
+                className="flex items-center gap-2 text-[11px] uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground transition-colors"
+                whileTap={{ scale: 0.98 }}
+              >
+                <Plus className="w-3 h-3" /> LEARN SPELL
+              </motion.button>
+            )}
+          </div>
+          <div className="tactical-card">
+            <SpellSlotTracker
+              dndClass={char.class}
+              level={char.level}
+              spellState={char.spells || getDefaultSpellState()}
+              onUpdateSpellState={spells => save({ ...char, spells })}
+              editable={editing}
+            />
+          </div>
+        </section>
+      )}
+
       <EquipmentDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
@@ -255,6 +284,24 @@ export default function CharacterView() {
           save({ ...char, equipment: [...char.equipment, item] });
         }}
         existingIds={char.equipment.map(e => e.id)}
+      />
+
+      <SpellDrawer
+        open={spellDrawerOpen}
+        onClose={() => setSpellDrawerOpen(false)}
+        onAdd={spellId => {
+          const currentSpells = char.spells || getDefaultSpellState();
+          save({
+            ...char,
+            spells: {
+              ...currentSpells,
+              knownSpellIds: [...currentSpells.knownSpellIds, spellId],
+              preparedSpellIds: [...currentSpells.preparedSpellIds, spellId],
+            },
+          });
+        }}
+        existingIds={(char.spells || getDefaultSpellState()).knownSpellIds}
+        dndClass={char.class}
       />
     </div>
   );
