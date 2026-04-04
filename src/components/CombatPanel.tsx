@@ -75,6 +75,13 @@ export function CombatPanel({
   const [showWeaponSelect, setShowWeaponSelect] = useState(false);
   const [isDodging, setIsDodging] = useState(false);
   const [lastHeal, setLastHeal] = useState<{ amount: number; item: string } | null>(null);
+  const [selectedSpell, setSelectedSpell] = useState<Spell | null>(null);
+  const [showSpellSelect, setShowSpellSelect] = useState(false);
+  const [lastSpellResult, setLastSpellResult] = useState<{
+    spellName: string; hit?: boolean; naturalRoll?: number; total?: number;
+    targetAC?: number; damage: number; damageType: string; targets: string[];
+    saveType?: string; healing?: boolean; natural20?: boolean;
+  } | null>(null);
 
   const { allCharacters } = useCharacterSync();
   const charData = allCharacters.find(c => c.name === token.label);
