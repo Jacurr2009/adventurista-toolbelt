@@ -2,14 +2,18 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Footprints, Swords, Shield, XCircle, Check, ChevronDown,
-  Zap, Heart, ArrowRight, Wind, ShieldOff, Activity,
+  Zap, Heart, ArrowRight, Wind, ShieldOff, Activity, BookOpen, Sparkles,
 } from 'lucide-react';
 import { MapToken } from './MapCanvas';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import {
   getModifier, getEquippedAC, getEquippedWeapons,
-  EquipmentItem, getProficiencyBonus, getDistanceFt,
+  EquipmentItem, getProficiencyBonus, getDistanceFt, getDefaultSpellState,
 } from '@/lib/types';
+import {
+  Spell, getSpellById, getSpellcastingAbility, getSlotKey, getSpellSlots,
+  getCantripDiceCount, CharacterSpellState,
+} from '@/lib/spells';
 
 interface CombatPanelProps {
   token: MapToken;
@@ -25,9 +29,11 @@ interface CombatPanelProps {
   onSetMovementUsed: (ft: number) => void;
   onSetCombatMoving: (moving: boolean) => void;
   combatMoving: boolean;
+  onShowAoe?: (x: number, y: number, radius: number) => void;
+  onClearAoe?: () => void;
 }
 
-type CombatAction = 'idle' | 'moving' | 'attacking' | 'dodging' | 'dashing' | 'disengaging' | 'using-item';
+type CombatAction = 'idle' | 'moving' | 'attacking' | 'dodging' | 'dashing' | 'disengaging' | 'using-item' | 'casting';
 
 interface AttackResult {
   attackRoll: number;
