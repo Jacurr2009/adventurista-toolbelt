@@ -106,6 +106,45 @@ export function CombatPanel({
 
   const availableWeapons = equippedWeapons.length > 0 ? equippedWeapons : [unarmedStrike];
 
+  // Spell data
+  const spellState = charData?.spells || getDefaultSpellState();
+  const spellcastingAbility = charData ? getSpellcastingAbility(charData.class) : 'INT';
+  const spellcastingMod = charData
+    ? getModifier(charData.abilities.find(a => a.name === spellcastingAbility)?.score ?? 10)
+    : 0;
+  const spellSaveDC = 8 + profBonus + spellcastingMod;
+  const spellAttackBonus = profBonus + spellcastingMod;
+  const maxSlots = charData ? getSpellSlots(charData.class, charData.level) : null;
+
+  const preparedSpells = useMemo(() => {
+    return spellState.preparedSpellIds
+      .map(id => getSpellById(id))
+      .filter(Boolean) as Spell[];
+  }, [spellState.preparedSpellIds]);
+
+  const cantrips = preparedSpells.filter(s => s.level === 0);
+  const leveledSpells = preparedSpells.filter(s => s.level > 0);
+
+  const canCastSpell = (spell: Spell): boolean => {
+    if (spell.level === 0) return true;
+    if (!maxSlots) return false;
+    // Check if any slot of this level or higher is available
+    for (let l = spell.level; l <= 9; l++) {
+      const key = getSlotKey(l);
+      if (maxSlots[key] - spellState.usedSlots[key] > 0) return true;
+    }
+    return false;
+  };
+
+  const getLowestAvailableSlot = (minLevel: number): number | null => {
+    if (!maxSlots) return null;
+    for (let l = minLevel; l <= 9; l++) {
+      const key = getSlotKey(l);
+      if (maxSlots[key] - spellState.usedSlots[key] > 0) return l;
+    }
+    return null;
+  };
+
   // Consumables that can be used (healing potions etc.)
   const usableItems = charData?.equipment.filter(
     e => e.category === 'consumable' && e.properties?.includes('healing') && e.quantity > 0
