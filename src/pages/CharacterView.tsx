@@ -19,6 +19,7 @@ export default function CharacterView() {
   const [char, setChar] = useState<Character | null>(null);
   const [editing, setEditing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [spellDrawerOpen, setSpellDrawerOpen] = useState(false);
   const iconInputRef = useRef<HTMLInputElement>(null);
 
   const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
