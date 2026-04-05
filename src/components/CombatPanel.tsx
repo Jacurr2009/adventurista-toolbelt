@@ -1016,6 +1016,12 @@ export function CombatPanel({
                   {lastSpellResult.healing ? 'Healed' : 'Dealt'} {lastSpellResult.damage} {lastSpellResult.damageType}
                 </p>
               )}
+              {lastSpellResult.friendlyFire && lastSpellResult.friendlyFire.length > 0 && (
+                <div className="flex items-center gap-1 text-[9px] text-yellow-500 mt-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Friendly fire hit: {lastSpellResult.friendlyFire.join(', ')}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
