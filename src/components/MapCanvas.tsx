@@ -85,6 +85,10 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
   const [combatMoving, setCombatMoving] = useState(false);
 
+  // AoE targeting
+  const [aoeState, setAoeState] = useState<AoeState | null>(null);
+  const [aoeMousePos, setAoeMousePos] = useState({ x: 0, y: 0 });
+
   const { allCharacters } = useCharacterSync();
   const characters = useRef<Character[]>(allCharacters);
   useEffect(() => { characters.current = allCharacters; }, [allCharacters]);
