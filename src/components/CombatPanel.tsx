@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Footprints, Swords, Shield, XCircle, Check, ChevronDown,
   Zap, Heart, ArrowRight, Wind, ShieldOff, Activity, BookOpen, Sparkles,
+  AlertTriangle, Target,
 } from 'lucide-react';
 import { MapToken } from './MapCanvas';
+import { AoeState } from './AoeOverlay';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import {
   getModifier, getEquippedAC, getEquippedWeapons,
@@ -29,8 +31,10 @@ interface CombatPanelProps {
   onSetMovementUsed: (ft: number) => void;
   onSetCombatMoving: (moving: boolean) => void;
   combatMoving: boolean;
-  onShowAoe?: (x: number, y: number, radius: number) => void;
-  onClearAoe?: () => void;
+  onStartAoePlacement?: (spell: Spell, casterToken: MapToken) => void;
+  aoeState?: AoeState | null;
+  onConfirmAoe?: () => { targets: { token: MapToken; isFriendly: boolean }[]; x: number; y: number } | undefined;
+  onCancelAoe?: () => void;
 }
 
 type CombatAction = 'idle' | 'moving' | 'attacking' | 'dodging' | 'dashing' | 'disengaging' | 'using-item' | 'casting';
