@@ -456,7 +456,7 @@ export function CombatPanel({
     setSelectedSpell(null);
     setShowSpellSelect(false);
     setAction('idle');
-    onClearAoe?.();
+    onCancelAoe?.();
   };
 
   const handleEndTurn = () => {
