@@ -339,21 +339,16 @@ export function CombatPanel({
       }
     }
 
-    // AoE spells
+    // AoE spells — resolve using placed targets from map
     if (spell.targetType.startsWith('aoe')) {
-      const aoeTargets = allTokens.filter(t => {
-        if (t.id === token.id && !spell.healing) return false;
-        if (spell.healing && t.type !== token.type) return false;
-        if (!spell.healing && t.type === token.type) return false;
-        const dist = getDistanceFt(token.x, token.y, t.x, t.y, gridSize, ftPerCell);
-        const radius = spell.aoeRadius || spell.aoeLength || 20;
-        return dist <= radius + spellRange;
-      });
+      const aoeResult = onConfirmAoe?.();
+      const aoeTargets = aoeResult?.targets || [];
 
       let totalDamage = 0;
       const targetNames: string[] = [];
+      const friendlyHit: string[] = [];
 
-      aoeTargets.forEach(target => {
+      aoeTargets.forEach(({ token: target, isFriendly }) => {
         let dmg = 0;
         if (spell.damageDie) {
           for (let i = 0; i < diceCount; i++) {
@@ -361,7 +356,6 @@ export function CombatPanel({
           }
           dmg += spellcastingMod;
 
-          // Save
           if (spell.saveAbility !== 'none') {
             const targetChar = allCharacters.find(c => c.name === target.label);
             const saveMod = targetChar
@@ -382,13 +376,15 @@ export function CombatPanel({
         }
         totalDamage += dmg;
         targetNames.push(target.label);
+        if (isFriendly) friendlyHit.push(target.label);
       });
 
       setLastSpellResult({
         spellName: spell.name, damage: totalDamage, damageType: spell.damageType || '',
         targets: targetNames, saveType: spell.saveAbility !== 'none' ? spell.saveAbility : undefined,
-        healing: spell.healing,
+        healing: spell.healing, friendlyFire: friendlyHit,
       });
+      onCancelAoe?.(); // Clear AoE overlay
     }
     // Single target
     else if (targetId) {
