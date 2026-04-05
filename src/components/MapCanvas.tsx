@@ -254,14 +254,27 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setDraggingToken(null);
   };
 
-  // Canvas click for combat movement
+  // Canvas click for combat movement or AoE placement
   const handleCanvasClick = (e: React.MouseEvent) => {
-    if (!combatMoving || !currentTurnId) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const mouseX = (e.clientX - rect.left - pan.x) / zoom;
     const mouseY = (e.clientY - rect.top - pan.y) / zoom;
+
+    // AoE placement mode
+    if (aoeState && !aoeState.placedX) {
+      let px = mouseX;
+      let py = mouseY;
+      if (showGrid) {
+        px = Math.round(px / gridSize) * gridSize + gridSize / 2;
+        py = Math.round(py / gridSize) * gridSize + gridSize / 2;
+      }
+      setAoeState({ ...aoeState, placedX: px, placedY: py });
+      return;
+    }
+
+    if (!combatMoving || !currentTurnId) return;
 
     let newX = mouseX;
     let newY = mouseY;
@@ -272,9 +285,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
     const currentToken = tokens.find(t => t.id === currentTurnId);
     if (currentToken) {
-      // Check movement blocking
       if (isMovementBlocked(currentToken.x, currentToken.y, newX, newY, obstacles)) {
-        return; // Path is blocked by an obstacle
+        return;
       }
 
       const dx = Math.abs(newX - currentToken.x) / gridSize;
@@ -294,6 +306,39 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     }
 
     moveToken(currentTurnId, newX, newY);
+  };
+
+  // Track mouse for AoE preview
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!aoeState || aoeState.placedX !== null) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    let mx = (e.clientX - rect.left - pan.x) / zoom;
+    let my = (e.clientY - rect.top - pan.y) / zoom;
+    if (showGrid) {
+      mx = Math.round(mx / gridSize) * gridSize + gridSize / 2;
+      my = Math.round(my / gridSize) * gridSize + gridSize / 2;
+    }
+    setAoeMousePos({ x: mx, y: my });
+  }, [aoeState, pan, zoom, showGrid, gridSize]);
+
+  // AoE callbacks for CombatPanel
+  const handleStartAoePlacement = useCallback((spell: Spell, casterToken: MapToken) => {
+    setAoeState({ spell, casterToken, placedX: null, placedY: null });
+  }, []);
+
+  const handleConfirmAoe = useCallback(() => {
+    if (!aoeState || aoeState.placedX === null) return;
+    const targets = getAoeTargets(
+      aoeState.spell, aoeState.placedX, aoeState.placedY!,
+      aoeState.casterToken, tokens, gridSize, ftPerCell
+    );
+    return { targets, x: aoeState.placedX, y: aoeState.placedY! };
+  }, [aoeState, tokens, gridSize, ftPerCell]);
+
+  const handleCancelAoe = useCallback(() => {
+    setAoeState(null);
+  }, []);
   };
 
   const moveToken = (tokenId: string, newX: number, newY: number) => {
