@@ -86,7 +86,7 @@ export function CombatPanel({
   const [lastSpellResult, setLastSpellResult] = useState<{
     spellName: string; hit?: boolean; naturalRoll?: number; total?: number;
     targetAC?: number; damage: number; damageType: string; targets: string[];
-    saveType?: string; healing?: boolean; natural20?: boolean;
+    saveType?: string; healing?: boolean; natural20?: boolean; friendlyFire?: string[];
   } | null>(null);
 
   const { allCharacters } = useCharacterSync();
