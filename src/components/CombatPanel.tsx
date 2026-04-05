@@ -707,7 +707,9 @@ export function CombatPanel({
                     setSelectedSpell(spell);
                     setShowSpellSelect(false);
                     if (spell.targetType === 'self') performSpellCast(spell);
-                    else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                    else if (spell.targetType.startsWith('aoe')) {
+                      onStartAoePlacement?.(spell, token);
+                    }
                   }}
                 />
               ))}
@@ -725,7 +727,9 @@ export function CombatPanel({
                       setSelectedSpell(spell);
                       setShowSpellSelect(false);
                       if (spell.targetType === 'self') performSpellCast(spell);
-                      else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                      else if (spell.targetType.startsWith('aoe')) {
+                        onStartAoePlacement?.(spell, token);
+                      }
                     }}
                   />
                 );
