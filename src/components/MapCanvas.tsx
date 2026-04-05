@@ -15,6 +15,8 @@ import { Obstacle, loadObstacles, saveObstacles } from '@/lib/obstacles';
 import { ObstacleLayer, ObstacleTool } from './ObstacleLayer';
 import { FogOfWarLayer } from './FogOfWarLayer';
 import { isVisible, isMovementBlocked } from '@/lib/visibility';
+import { AoeOverlay, AoeState, getAoeTargets } from './AoeOverlay';
+import { Spell } from '@/lib/spells';
 
 export interface MapToken {
   id: string;
