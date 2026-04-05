@@ -68,8 +68,10 @@ export function CombatPanel({
   onSetMovementUsed,
   onSetCombatMoving,
   combatMoving,
-  onShowAoe,
-  onClearAoe,
+  onStartAoePlacement,
+  aoeState,
+  onConfirmAoe,
+  onCancelAoe,
 }: CombatPanelProps) {
   const [action, setAction] = useState<CombatAction>('idle');
   const [hasUsedAction, setHasUsedAction] = useState(false);
