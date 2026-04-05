@@ -787,6 +787,81 @@ export function CombatPanel({
           )}
         </AnimatePresence>
 
+        {/* AoE placement confirm/cancel */}
+        <AnimatePresence>
+          {action === 'casting' && selectedSpell && selectedSpell.targetType.startsWith('aoe') && aoeState && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1.5 pl-2"
+            >
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground py-1">
+                Casting: <span className="text-purple-400">{selectedSpell.name}</span>
+              </p>
+              {!aoeState.placedX ? (
+                <div className="tactical-card !p-2 text-[10px] font-mono text-muted-foreground flex items-center gap-2">
+                  <Target className="w-3 h-3 text-accent animate-pulse" />
+                  Click on the map to place the AoE
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="tactical-card !p-2 text-[10px] font-mono border-accent">
+                    <div className="flex items-center gap-1 text-accent mb-1">
+                      <Target className="w-3 h-3" />
+                      AoE Placed — Review targets
+                    </div>
+                    {(() => {
+                      const result = onConfirmAoe?.();
+                      const targets = result?.targets || [];
+                      const friendlies = targets.filter(t => t.isFriendly);
+                      const hostiles = targets.filter(t => !t.isFriendly);
+                      return (
+                        <>
+                          {hostiles.length > 0 && (
+                            <p className="text-[9px] text-destructive">
+                              Enemies: {hostiles.map(t => t.token.label).join(', ')}
+                            </p>
+                          )}
+                          {friendlies.length > 0 && (
+                            <div className="flex items-center gap-1 text-[9px] text-yellow-500">
+                              <AlertTriangle className="w-3 h-3" />
+                              Friendly fire: {friendlies.map(t => t.token.label).join(', ')}
+                            </div>
+                          )}
+                          {targets.length === 0 && (
+                            <p className="text-[9px] text-muted-foreground">No targets in area</p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => performSpellCast(selectedSpell)}
+                      className="tactical-card !p-2 flex-1 flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold border-secondary text-secondary hover:bg-secondary/10"
+                    >
+                      <Check className="w-3 h-3" />
+                      Cast
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCancelAoe?.();
+                        setSelectedSpell(null);
+                        setShowSpellSelect(true);
+                      }}
+                      className="tactical-card !p-2 flex-1 flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold border-destructive text-destructive hover:bg-destructive/10"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {!hasUsedAction && action === 'idle' && (
           <div className="flex gap-1">
             <button
