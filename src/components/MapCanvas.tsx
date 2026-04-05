@@ -339,7 +339,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const handleCancelAoe = useCallback(() => {
     setAoeState(null);
   }, []);
-  };
 
   const moveToken = (tokenId: string, newX: number, newY: number) => {
     setTokens(prev => prev.map(t =>
