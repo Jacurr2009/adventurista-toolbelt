@@ -15,6 +15,8 @@ import { Obstacle, loadObstacles, saveObstacles } from '@/lib/obstacles';
 import { ObstacleLayer, ObstacleTool } from './ObstacleLayer';
 import { FogOfWarLayer } from './FogOfWarLayer';
 import { isVisible, isMovementBlocked } from '@/lib/visibility';
+import { AoeOverlay, AoeState, getAoeTargets } from './AoeOverlay';
+import { Spell } from '@/lib/spells';
 
 export interface MapToken {
   id: string;
@@ -82,6 +84,10 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [combatActive, setCombatActive] = useState(false);
   const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
   const [combatMoving, setCombatMoving] = useState(false);
+
+  // AoE targeting
+  const [aoeState, setAoeState] = useState<AoeState | null>(null);
+  const [aoeMousePos, setAoeMousePos] = useState({ x: 0, y: 0 });
 
   const { allCharacters } = useCharacterSync();
   const characters = useRef<Character[]>(allCharacters);
@@ -248,14 +254,27 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setDraggingToken(null);
   };
 
-  // Canvas click for combat movement
+  // Canvas click for combat movement or AoE placement
   const handleCanvasClick = (e: React.MouseEvent) => {
-    if (!combatMoving || !currentTurnId) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const mouseX = (e.clientX - rect.left - pan.x) / zoom;
     const mouseY = (e.clientY - rect.top - pan.y) / zoom;
+
+    // AoE placement mode
+    if (aoeState && !aoeState.placedX) {
+      let px = mouseX;
+      let py = mouseY;
+      if (showGrid) {
+        px = Math.round(px / gridSize) * gridSize + gridSize / 2;
+        py = Math.round(py / gridSize) * gridSize + gridSize / 2;
+      }
+      setAoeState({ ...aoeState, placedX: px, placedY: py });
+      return;
+    }
+
+    if (!combatMoving || !currentTurnId) return;
 
     let newX = mouseX;
     let newY = mouseY;
@@ -266,9 +285,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
     const currentToken = tokens.find(t => t.id === currentTurnId);
     if (currentToken) {
-      // Check movement blocking
       if (isMovementBlocked(currentToken.x, currentToken.y, newX, newY, obstacles)) {
-        return; // Path is blocked by an obstacle
+        return;
       }
 
       const dx = Math.abs(newX - currentToken.x) / gridSize;
@@ -289,6 +307,38 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
     moveToken(currentTurnId, newX, newY);
   };
+
+  // Track mouse for AoE preview
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!aoeState || aoeState.placedX !== null) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    let mx = (e.clientX - rect.left - pan.x) / zoom;
+    let my = (e.clientY - rect.top - pan.y) / zoom;
+    if (showGrid) {
+      mx = Math.round(mx / gridSize) * gridSize + gridSize / 2;
+      my = Math.round(my / gridSize) * gridSize + gridSize / 2;
+    }
+    setAoeMousePos({ x: mx, y: my });
+  }, [aoeState, pan, zoom, showGrid, gridSize]);
+
+  // AoE callbacks for CombatPanel
+  const handleStartAoePlacement = useCallback((spell: Spell, casterToken: MapToken) => {
+    setAoeState({ spell, casterToken, placedX: null, placedY: null });
+  }, []);
+
+  const handleConfirmAoe = useCallback(() => {
+    if (!aoeState || aoeState.placedX === null) return;
+    const targets = getAoeTargets(
+      aoeState.spell, aoeState.placedX, aoeState.placedY!,
+      aoeState.casterToken, tokens, gridSize, ftPerCell
+    );
+    return { targets, x: aoeState.placedX, y: aoeState.placedY! };
+  }, [aoeState, tokens, gridSize, ftPerCell]);
+
+  const handleCancelAoe = useCallback(() => {
+    setAoeState(null);
+  }, []);
 
   const moveToken = (tokenId: string, newX: number, newY: number) => {
     setTokens(prev => prev.map(t =>
@@ -526,6 +576,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         <div
           ref={containerRef}
           className={`flex-1 overflow-hidden relative bg-muted/30 ${
+            aoeState && !aoeState.placedX ? 'cursor-crosshair' :
             obstacleTool === 'line' || obstacleTool === 'rect' ? 'cursor-crosshair' :
             combatMoving ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
           }`}
@@ -534,6 +585,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           onPointerMove={(e) => { handlePointerMove(e); handleTokenPointerMove(e); }}
           onPointerUp={() => { handlePointerUp(); handleTokenPointerUp(); }}
           onClick={handleCanvasClick}
+          onMouseMove={handleCanvasMouseMove}
           style={{ touchAction: 'none' }}
         >
           <div
@@ -605,6 +657,19 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               isDM={isDM}
               showPlayerPreview={showPlayerPreview}
             />
+
+            {/* AoE overlay */}
+            {aoeState && (
+              <AoeOverlay
+                aoe={aoeState}
+                mouseX={aoeMousePos.x}
+                mouseY={aoeMousePos.y}
+                gridSize={gridSize}
+                ftPerCell={ftPerCell}
+                allTokens={tokens}
+                imgSize={imgSize}
+              />
+            )}
 
             {/* Tokens */}
             {tokens.map(token => {
@@ -731,6 +796,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             onEndTurn={() => {
               setCombatMovementUsed(0);
               setCombatMoving(false);
+              setAoeState(null);
               handleNextTurn();
             }}
             isCurrentTurn={true}
@@ -738,6 +804,10 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             onSetMovementUsed={setCombatMovementUsed}
             onSetCombatMoving={setCombatMoving}
             combatMoving={combatMoving}
+            onStartAoePlacement={handleStartAoePlacement}
+            aoeState={aoeState}
+            onConfirmAoe={handleConfirmAoe}
+            onCancelAoe={handleCancelAoe}
           />
         )}
 

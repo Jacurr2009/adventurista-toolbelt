@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Footprints, Swords, Shield, XCircle, Check, ChevronDown,
   Zap, Heart, ArrowRight, Wind, ShieldOff, Activity, BookOpen, Sparkles,
+  AlertTriangle, Target,
 } from 'lucide-react';
 import { MapToken } from './MapCanvas';
+import { AoeState } from './AoeOverlay';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import {
   getModifier, getEquippedAC, getEquippedWeapons,
@@ -29,8 +31,10 @@ interface CombatPanelProps {
   onSetMovementUsed: (ft: number) => void;
   onSetCombatMoving: (moving: boolean) => void;
   combatMoving: boolean;
-  onShowAoe?: (x: number, y: number, radius: number) => void;
-  onClearAoe?: () => void;
+  onStartAoePlacement?: (spell: Spell, casterToken: MapToken) => void;
+  aoeState?: AoeState | null;
+  onConfirmAoe?: () => { targets: { token: MapToken; isFriendly: boolean }[]; x: number; y: number } | undefined;
+  onCancelAoe?: () => void;
 }
 
 type CombatAction = 'idle' | 'moving' | 'attacking' | 'dodging' | 'dashing' | 'disengaging' | 'using-item' | 'casting';
@@ -64,8 +68,10 @@ export function CombatPanel({
   onSetMovementUsed,
   onSetCombatMoving,
   combatMoving,
-  onShowAoe,
-  onClearAoe,
+  onStartAoePlacement,
+  aoeState,
+  onConfirmAoe,
+  onCancelAoe,
 }: CombatPanelProps) {
   const [action, setAction] = useState<CombatAction>('idle');
   const [hasUsedAction, setHasUsedAction] = useState(false);
@@ -80,7 +86,7 @@ export function CombatPanel({
   const [lastSpellResult, setLastSpellResult] = useState<{
     spellName: string; hit?: boolean; naturalRoll?: number; total?: number;
     targetAC?: number; damage: number; damageType: string; targets: string[];
-    saveType?: string; healing?: boolean; natural20?: boolean;
+    saveType?: string; healing?: boolean; natural20?: boolean; friendlyFire?: string[];
   } | null>(null);
 
   const { allCharacters } = useCharacterSync();
@@ -333,21 +339,16 @@ export function CombatPanel({
       }
     }
 
-    // AoE spells
+    // AoE spells — resolve using placed targets from map
     if (spell.targetType.startsWith('aoe')) {
-      const aoeTargets = allTokens.filter(t => {
-        if (t.id === token.id && !spell.healing) return false;
-        if (spell.healing && t.type !== token.type) return false;
-        if (!spell.healing && t.type === token.type) return false;
-        const dist = getDistanceFt(token.x, token.y, t.x, t.y, gridSize, ftPerCell);
-        const radius = spell.aoeRadius || spell.aoeLength || 20;
-        return dist <= radius + spellRange;
-      });
+      const aoeResult = onConfirmAoe?.();
+      const aoeTargets = aoeResult?.targets || [];
 
       let totalDamage = 0;
       const targetNames: string[] = [];
+      const friendlyHit: string[] = [];
 
-      aoeTargets.forEach(target => {
+      aoeTargets.forEach(({ token: target, isFriendly }) => {
         let dmg = 0;
         if (spell.damageDie) {
           for (let i = 0; i < diceCount; i++) {
@@ -355,7 +356,6 @@ export function CombatPanel({
           }
           dmg += spellcastingMod;
 
-          // Save
           if (spell.saveAbility !== 'none') {
             const targetChar = allCharacters.find(c => c.name === target.label);
             const saveMod = targetChar
@@ -376,13 +376,15 @@ export function CombatPanel({
         }
         totalDamage += dmg;
         targetNames.push(target.label);
+        if (isFriendly) friendlyHit.push(target.label);
       });
 
       setLastSpellResult({
         spellName: spell.name, damage: totalDamage, damageType: spell.damageType || '',
         targets: targetNames, saveType: spell.saveAbility !== 'none' ? spell.saveAbility : undefined,
-        healing: spell.healing,
+        healing: spell.healing, friendlyFire: friendlyHit,
       });
+      onCancelAoe?.(); // Clear AoE overlay
     }
     // Single target
     else if (targetId) {
@@ -454,7 +456,7 @@ export function CombatPanel({
     setSelectedSpell(null);
     setShowSpellSelect(false);
     setAction('idle');
-    onClearAoe?.();
+    onCancelAoe?.();
   };
 
   const handleEndTurn = () => {
@@ -470,7 +472,7 @@ export function CombatPanel({
     setIsDodging(false);
     setHasDashed(false);
     onSetCombatMoving(false);
-    onClearAoe?.();
+    onCancelAoe?.();
     onEndTurn();
   };
 
@@ -705,7 +707,9 @@ export function CombatPanel({
                     setSelectedSpell(spell);
                     setShowSpellSelect(false);
                     if (spell.targetType === 'self') performSpellCast(spell);
-                    else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                    else if (spell.targetType.startsWith('aoe')) {
+                      onStartAoePlacement?.(spell, token);
+                    }
                   }}
                 />
               ))}
@@ -723,7 +727,9 @@ export function CombatPanel({
                       setSelectedSpell(spell);
                       setShowSpellSelect(false);
                       if (spell.targetType === 'self') performSpellCast(spell);
-                      else if (spell.targetType.startsWith('aoe')) performSpellCast(spell);
+                      else if (spell.targetType.startsWith('aoe')) {
+                        onStartAoePlacement?.(spell, token);
+                      }
                     }}
                   />
                 );
@@ -777,6 +783,81 @@ export function CombatPanel({
                   </button>
                 );
               })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* AoE placement confirm/cancel */}
+        <AnimatePresence>
+          {action === 'casting' && selectedSpell && selectedSpell.targetType.startsWith('aoe') && aoeState && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1.5 pl-2"
+            >
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground py-1">
+                Casting: <span className="text-purple-400">{selectedSpell.name}</span>
+              </p>
+              {!aoeState.placedX ? (
+                <div className="tactical-card !p-2 text-[10px] font-mono text-muted-foreground flex items-center gap-2">
+                  <Target className="w-3 h-3 text-accent animate-pulse" />
+                  Click on the map to place the AoE
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="tactical-card !p-2 text-[10px] font-mono border-accent">
+                    <div className="flex items-center gap-1 text-accent mb-1">
+                      <Target className="w-3 h-3" />
+                      AoE Placed — Review targets
+                    </div>
+                    {(() => {
+                      const result = onConfirmAoe?.();
+                      const targets = result?.targets || [];
+                      const friendlies = targets.filter(t => t.isFriendly);
+                      const hostiles = targets.filter(t => !t.isFriendly);
+                      return (
+                        <>
+                          {hostiles.length > 0 && (
+                            <p className="text-[9px] text-destructive">
+                              Enemies: {hostiles.map(t => t.token.label).join(', ')}
+                            </p>
+                          )}
+                          {friendlies.length > 0 && (
+                            <div className="flex items-center gap-1 text-[9px] text-yellow-500">
+                              <AlertTriangle className="w-3 h-3" />
+                              Friendly fire: {friendlies.map(t => t.token.label).join(', ')}
+                            </div>
+                          )}
+                          {targets.length === 0 && (
+                            <p className="text-[9px] text-muted-foreground">No targets in area</p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => performSpellCast(selectedSpell)}
+                      className="tactical-card !p-2 flex-1 flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold border-secondary text-secondary hover:bg-secondary/10"
+                    >
+                      <Check className="w-3 h-3" />
+                      Cast
+                    </button>
+                    <button
+                      onClick={() => {
+                        onCancelAoe?.();
+                        setSelectedSpell(null);
+                        setShowSpellSelect(true);
+                      }}
+                      className="tactical-card !p-2 flex-1 flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold border-destructive text-destructive hover:bg-destructive/10"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -934,6 +1015,12 @@ export function CombatPanel({
                 <p className="text-foreground font-bold mt-1">
                   {lastSpellResult.healing ? 'Healed' : 'Dealt'} {lastSpellResult.damage} {lastSpellResult.damageType}
                 </p>
+              )}
+              {lastSpellResult.friendlyFire && lastSpellResult.friendlyFire.length > 0 && (
+                <div className="flex items-center gap-1 text-[9px] text-yellow-500 mt-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Friendly fire hit: {lastSpellResult.friendlyFire.join(', ')}
+                </div>
               )}
             </motion.div>
           )}
