@@ -577,6 +577,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         <div
           ref={containerRef}
           className={`flex-1 overflow-hidden relative bg-muted/30 ${
+            aoeState && !aoeState.placedX ? 'cursor-crosshair' :
             obstacleTool === 'line' || obstacleTool === 'rect' ? 'cursor-crosshair' :
             combatMoving ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
           }`}
@@ -585,6 +586,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           onPointerMove={(e) => { handlePointerMove(e); handleTokenPointerMove(e); }}
           onPointerUp={() => { handlePointerUp(); handleTokenPointerUp(); }}
           onClick={handleCanvasClick}
+          onMouseMove={handleCanvasMouseMove}
           style={{ touchAction: 'none' }}
         >
           <div
@@ -656,6 +658,19 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               isDM={isDM}
               showPlayerPreview={showPlayerPreview}
             />
+
+            {/* AoE overlay */}
+            {aoeState && (
+              <AoeOverlay
+                aoe={aoeState}
+                mouseX={aoeMousePos.x}
+                mouseY={aoeMousePos.y}
+                gridSize={gridSize}
+                ftPerCell={ftPerCell}
+                allTokens={tokens}
+                imgSize={imgSize}
+              />
+            )}
 
             {/* Tokens */}
             {tokens.map(token => {
@@ -782,6 +797,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             onEndTurn={() => {
               setCombatMovementUsed(0);
               setCombatMoving(false);
+              setAoeState(null);
               handleNextTurn();
             }}
             isCurrentTurn={true}
@@ -789,6 +805,10 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
             onSetMovementUsed={setCombatMovementUsed}
             onSetCombatMoving={setCombatMoving}
             combatMoving={combatMoving}
+            onStartAoePlacement={handleStartAoePlacement}
+            aoeState={aoeState}
+            onConfirmAoe={handleConfirmAoe}
+            onCancelAoe={handleCancelAoe}
           />
         )}
 
