@@ -472,7 +472,7 @@ export function CombatPanel({
     setIsDodging(false);
     setHasDashed(false);
     onSetCombatMoving(false);
-    onClearAoe?.();
+    onCancelAoe?.();
     onEndTurn();
   };
 
