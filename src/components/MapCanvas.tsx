@@ -484,6 +484,80 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const currentToken = selectedToken ? tokens.find(t => t.id === selectedToken) : null;
   const currentTurnToken = currentTurnId ? tokens.find(t => t.id === currentTurnId) : null;
 
+  const sidebarContent = (
+    <>
+      <InitiativeTracker
+        tokens={tokens}
+        currentTurnId={currentTurnId}
+        entries={initiativeEntries}
+        setEntries={setInitiativeEntries}
+        onStartCombat={handleStartCombat}
+        onNextTurn={handleNextTurn}
+        onResetCombat={handleResetCombat}
+        combatActive={combatActive}
+        isDM={isDM}
+      />
+
+      {combatActive && currentTurnToken && (
+        <CombatPanel
+          token={currentTurnToken}
+          allTokens={tokens}
+          gridSize={gridSize}
+          ftPerCell={ftPerCell}
+          onMoveToken={moveToken}
+          onDamageToken={damageToken}
+          onHealToken={healToken}
+          onEndTurn={() => {
+            setCombatMovementUsed(0);
+            setCombatMoving(false);
+            setAoeState(null);
+            handleNextTurn();
+          }}
+          isCurrentTurn={true}
+          movementUsed={combatMovementUsed}
+          onSetMovementUsed={setCombatMovementUsed}
+          onSetCombatMoving={setCombatMoving}
+          combatMoving={combatMoving}
+          onStartAoePlacement={handleStartAoePlacement}
+          aoeState={aoeState}
+          onConfirmAoe={handleConfirmAoe}
+          onCancelAoe={handleCancelAoe}
+        />
+      )}
+
+      {isDM && currentToken && currentToken.type === 'character' && (
+        <div className="border border-border rounded p-2">
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-1">
+            Vision — {currentToken.label}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => updateTokenVision(currentToken.id, Math.max(1, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) - 2))}
+              className="tactical-card !p-1 px-1"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
+            <span className="font-mono text-[10px] text-foreground flex-1 text-center">
+              {Math.round((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize * ftPerCell)}ft
+            </span>
+            <button
+              onClick={() => updateTokenVision(currentToken.id, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) + 2)}
+              className="tactical-card !p-1 px-1"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isDM && obstacles.length > 0 && (
+        <div className="text-[9px] font-mono text-muted-foreground px-1">
+          {obstacles.length} obstacle{obstacles.length !== 1 ? 's' : ''} · {obstacles.filter(o => o.blocksVision).length} vision · {obstacles.filter(o => o.blocksMovement).length} movement
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="relative w-full h-full flex flex-col md:flex-row">
       {/* Main canvas area */}
