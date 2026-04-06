@@ -749,6 +749,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                   onPointerDown={(e) => handleTokenPointerDown(e, token.id)}
                   onClick={(e) => { e.stopPropagation(); setSelectedToken(token.id); }}
                 >
+                  {/* Invisible larger touch target for mobile */}
+                  <div className="absolute -inset-3 md:-inset-0 rounded-full" />
                   {isCurrent && (
                     <div className="absolute -inset-1.5 rounded-full border-2 border-secondary animate-pulse" />
                   )}
