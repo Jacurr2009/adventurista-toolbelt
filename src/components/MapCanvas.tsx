@@ -90,6 +90,13 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [aoeState, setAoeState] = useState<AoeState | null>(null);
   const [aoeMousePos, setAoeMousePos] = useState({ x: 0, y: 0 });
 
+  // Mobile panel toggle
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+
+  // Pinch-to-zoom
+  const lastTouchDist = useRef<number | null>(null);
+  const lastTouchCenter = useRef<{ x: number; y: number } | null>(null);
+
   const { allCharacters } = useCharacterSync();
   const characters = useRef<Character[]>(allCharacters);
   useEffect(() => { characters.current = allCharacters; }, [allCharacters]);
