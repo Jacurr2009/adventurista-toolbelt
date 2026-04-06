@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
   Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square,
+  ChevronUp, Swords,
 } from 'lucide-react';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { Character } from '@/lib/types';
