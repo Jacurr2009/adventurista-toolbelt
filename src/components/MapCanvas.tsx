@@ -203,6 +203,47 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setIsPanning(false);
   }, []);
 
+  // Pinch-to-zoom handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastTouchDist.current = Math.sqrt(dx * dx + dy * dy);
+      lastTouchCenter.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && lastTouchDist.current !== null) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const scale = dist / lastTouchDist.current;
+      setZoom(z => Math.max(0.2, Math.min(5, z * scale)));
+      lastTouchDist.current = dist;
+
+      // Pan with two-finger center movement
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      if (lastTouchCenter.current) {
+        setPan(p => ({
+          x: p.x + (cx - lastTouchCenter.current!.x),
+          y: p.y + (cy - lastTouchCenter.current!.y),
+        }));
+      }
+      lastTouchCenter.current = { x: cx, y: cy };
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    lastTouchDist.current = null;
+    lastTouchCenter.current = null;
+  }, []);
+
   const handleTokenPointerDown = (e: React.PointerEvent, tokenId: string) => {
     if (obstacleTool) return; // Don't grab tokens while drawing obstacles
     e.stopPropagation();
