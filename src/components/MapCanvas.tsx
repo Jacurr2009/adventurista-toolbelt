@@ -641,6 +641,9 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           onPointerUp={() => { handlePointerUp(); handleTokenPointerUp(); }}
           onClick={handleCanvasClick}
           onMouseMove={handleCanvasMouseMove}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           style={{ touchAction: 'none' }}
         >
           <div
