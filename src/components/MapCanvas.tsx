@@ -239,6 +239,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       newY = Math.round(newY / gridSize) * gridSize + gridSize / 2;
     }
 
+    // Block movement through walls/obstacles (both in and out of combat)
+    const currentToken = tokens.find(t => t.id === draggingToken);
+    if (currentToken && isMovementBlocked(currentToken.x, currentToken.y, newX, newY, obstacles)) {
+      return;
+    }
+
     setTokens(prev => prev.map(t =>
       t.id === draggingToken ? { ...t, x: newX, y: newY } : t
     ));
