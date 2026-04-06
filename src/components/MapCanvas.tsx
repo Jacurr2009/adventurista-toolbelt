@@ -485,11 +485,11 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const currentTurnToken = currentTurnId ? tokens.find(t => t.id === currentTurnId) : null;
 
   return (
-    <div className="relative w-full h-full flex">
+    <div className="relative w-full h-full flex flex-col md:flex-row">
       {/* Main canvas area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Toolbar */}
-        <div className="flex items-center gap-1 p-2 bg-card border-b border-border flex-wrap shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        {/* Toolbar — scrollable horizontally on mobile */}
+        <div className="flex items-center gap-1 p-2 bg-card border-b border-border shrink-0 overflow-x-auto scrollbar-none">
           <button onClick={() => setZoom(z => Math.min(5, z + 0.2))} className="tactical-card !p-1 px-2" title="Zoom in">
             <ZoomIn className="w-4 h-4" />
           </button>
