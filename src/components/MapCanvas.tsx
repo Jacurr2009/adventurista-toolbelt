@@ -913,7 +913,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
       <div className="md:hidden">
         <button
           onClick={() => setMobilePanelOpen(!mobilePanelOpen)}
-          className="fixed bottom-4 right-4 z-50 bg-card border border-border rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+          className="fixed bottom-20 right-4 z-50 bg-card border border-border rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
         >
           {mobilePanelOpen ? (
             <X className="w-5 h-5 text-foreground" />
