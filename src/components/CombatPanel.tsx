@@ -8,6 +8,7 @@ import {
 import { MapToken } from './MapCanvas';
 import { AoeState } from './AoeOverlay';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
+import { updateCharacter } from '@/lib/store';
 import {
   getModifier, getEquippedAC, getEquippedWeapons,
   EquipmentItem, getProficiencyBonus, getDistanceFt, getDefaultSpellState,
@@ -89,7 +90,7 @@ export function CombatPanel({
     saveType?: string; healing?: boolean; natural20?: boolean; friendlyFire?: string[];
   } | null>(null);
 
-  const { allCharacters } = useCharacterSync();
+  const { allCharacters, refreshLocal } = useCharacterSync();
   const charData = allCharacters.find(c => c.name === token.label);
   const maxMovement = charData?.speed || 30;
   const profBonus = charData ? getProficiencyBonus(charData.level) : 2;
@@ -326,16 +327,19 @@ export function CombatPanel({
       : (spell.damageDiceCount || 1);
     const spellRange = spell.range === -1 ? 5 : spell.range;
 
-    // Consume spell slot
+    // Consume spell slot and persist
     if (spell.level > 0 && charData) {
       const slotLevel = getLowestAvailableSlot(spell.level);
       if (!slotLevel) return;
       const key = getSlotKey(slotLevel);
       if (charData.spells) {
-        charData.spells = {
+        const updatedSpells = {
           ...charData.spells,
           usedSlots: { ...charData.spells.usedSlots, [key]: charData.spells.usedSlots[key] + 1 },
         };
+        const updatedChar = { ...charData, spells: updatedSpells };
+        updateCharacter(updatedChar);
+        refreshLocal();
       }
     }
 
