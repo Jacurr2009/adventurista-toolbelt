@@ -805,18 +805,18 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           </div>
         </div>
 
-        {/* Token list bar */}
+        {/* Token list bar — scrollable on mobile */}
         {tokens.length > 0 && (
-          <div className="bg-card border-t border-border p-2 flex gap-2 flex-wrap shrink-0">
+          <div className="bg-card border-t border-border p-2 flex gap-2 overflow-x-auto scrollbar-none shrink-0">
             {tokens.map(t => (
               <div
                 key={t.id}
-                className={`flex items-center gap-1 text-[10px] font-mono cursor-pointer rounded px-1 py-0.5 transition-colors ${
+                className={`flex items-center gap-1 text-[10px] font-mono cursor-pointer rounded px-2 py-1 transition-colors whitespace-nowrap ${
                   t.id === selectedToken ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setSelectedToken(t.id)}
               >
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                 {t.label}
                 {t.hp !== undefined && <span className="text-[8px]">({t.hp}HP)</span>}
                 {isDM && (
@@ -830,79 +830,56 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         )}
       </div>
 
-      {/* Right sidebar: Initiative + Combat + Vision */}
+      {/* Desktop: Right sidebar */}
       <div className="w-56 shrink-0 bg-card border-l border-border overflow-y-auto hidden md:flex flex-col gap-2 p-2">
-        <InitiativeTracker
-          tokens={tokens}
-          currentTurnId={currentTurnId}
-          entries={initiativeEntries}
-          setEntries={setInitiativeEntries}
-          onStartCombat={handleStartCombat}
-          onNextTurn={handleNextTurn}
-          onResetCombat={handleResetCombat}
-          combatActive={combatActive}
-          isDM={isDM}
-        />
+        {sidebarContent}
+      </div>
 
-        {combatActive && currentTurnToken && (
-          <CombatPanel
-            token={currentTurnToken}
-            allTokens={tokens}
-            gridSize={gridSize}
-            ftPerCell={ftPerCell}
-            onMoveToken={moveToken}
-            onDamageToken={damageToken}
-            onHealToken={healToken}
-            onEndTurn={() => {
-              setCombatMovementUsed(0);
-              setCombatMoving(false);
-              setAoeState(null);
-              handleNextTurn();
-            }}
-            isCurrentTurn={true}
-            movementUsed={combatMovementUsed}
-            onSetMovementUsed={setCombatMovementUsed}
-            onSetCombatMoving={setCombatMoving}
-            combatMoving={combatMoving}
-            onStartAoePlacement={handleStartAoePlacement}
-            aoeState={aoeState}
-            onConfirmAoe={handleConfirmAoe}
-            onCancelAoe={handleCancelAoe}
-          />
-        )}
-
-        {/* Vision radius controls (DM only, per selected character token) */}
-        {isDM && currentToken && currentToken.type === 'character' && (
-          <div className="border border-border rounded p-2">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-1">
-              Vision — {currentToken.label}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => updateTokenVision(currentToken.id, Math.max(1, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) - 2))}
-                className="tactical-card !p-1 px-1"
-              >
-                <Minus className="w-3 h-3" />
-              </button>
-              <span className="font-mono text-[10px] text-foreground flex-1 text-center">
-                {Math.round((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize * ftPerCell)}ft
-              </span>
-              <button
-                onClick={() => updateTokenVision(currentToken.id, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) + 2)}
-                className="tactical-card !p-1 px-1"
-              >
-                <Plus className="w-3 h-3" />
-              </button>
+      {/* Mobile: Bottom sheet toggle + panel */}
+      <div className="md:hidden">
+        <button
+          onClick={() => setMobilePanelOpen(!mobilePanelOpen)}
+          className="fixed bottom-4 right-4 z-50 bg-card border border-border rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+        >
+          {mobilePanelOpen ? (
+            <X className="w-5 h-5 text-foreground" />
+          ) : (
+            <div className="relative">
+              <Swords className="w-5 h-5 text-foreground" />
+              {combatActive && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" />
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </button>
 
-        {/* Obstacle count */}
-        {isDM && obstacles.length > 0 && (
-          <div className="text-[9px] font-mono text-muted-foreground px-1">
-            {obstacles.length} obstacle{obstacles.length !== 1 ? 's' : ''} · {obstacles.filter(o => o.blocksVision).length} vision · {obstacles.filter(o => o.blocksMovement).length} movement
-          </div>
-        )}
+        <AnimatePresence>
+          {mobilePanelOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-background/40 z-40"
+                onClick={() => setMobilePanelOpen(false)}
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-xl max-h-[70vh] overflow-y-auto"
+              >
+                <div className="flex justify-center pt-2 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+                </div>
+                <div className="p-3 space-y-2">
+                  {sidebarContent}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
