@@ -1,9 +1,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
   Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square,
-  ChevronUp, Swords,
 } from 'lucide-react';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { Character } from '@/lib/types';
@@ -89,13 +88,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   // AoE targeting
   const [aoeState, setAoeState] = useState<AoeState | null>(null);
   const [aoeMousePos, setAoeMousePos] = useState({ x: 0, y: 0 });
-
-  // Mobile panel toggle
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
-
-  // Pinch-to-zoom
-  const lastTouchDist = useRef<number | null>(null);
-  const lastTouchCenter = useRef<{ x: number; y: number } | null>(null);
 
   const { allCharacters } = useCharacterSync();
   const characters = useRef<Character[]>(allCharacters);
@@ -201,47 +193,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
   const handlePointerUp = useCallback(() => {
     setIsPanning(false);
-  }, []);
-
-  // Pinch-to-zoom handlers
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      lastTouchDist.current = Math.sqrt(dx * dx + dy * dy);
-      lastTouchCenter.current = {
-        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-      };
-    }
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && lastTouchDist.current !== null) {
-      e.preventDefault();
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const scale = dist / lastTouchDist.current;
-      setZoom(z => Math.max(0.2, Math.min(5, z * scale)));
-      lastTouchDist.current = dist;
-
-      // Pan with two-finger center movement
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      if (lastTouchCenter.current) {
-        setPan(p => ({
-          x: p.x + (cx - lastTouchCenter.current!.x),
-          y: p.y + (cy - lastTouchCenter.current!.y),
-        }));
-      }
-      lastTouchCenter.current = { x: cx, y: cy };
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    lastTouchDist.current = null;
-    lastTouchCenter.current = null;
   }, []);
 
   const handleTokenPointerDown = (e: React.PointerEvent, tokenId: string) => {
@@ -484,86 +435,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const currentToken = selectedToken ? tokens.find(t => t.id === selectedToken) : null;
   const currentTurnToken = currentTurnId ? tokens.find(t => t.id === currentTurnId) : null;
 
-  const sidebarContent = (
-    <>
-      <InitiativeTracker
-        tokens={tokens}
-        currentTurnId={currentTurnId}
-        entries={initiativeEntries}
-        setEntries={setInitiativeEntries}
-        onStartCombat={handleStartCombat}
-        onNextTurn={handleNextTurn}
-        onResetCombat={handleResetCombat}
-        combatActive={combatActive}
-        isDM={isDM}
-      />
-
-      {combatActive && currentTurnToken && (
-        <CombatPanel
-          token={currentTurnToken}
-          allTokens={tokens}
-          gridSize={gridSize}
-          ftPerCell={ftPerCell}
-          onMoveToken={moveToken}
-          onDamageToken={damageToken}
-          onHealToken={healToken}
-          onEndTurn={() => {
-            setCombatMovementUsed(0);
-            setCombatMoving(false);
-            setAoeState(null);
-            handleNextTurn();
-          }}
-          isCurrentTurn={true}
-          movementUsed={combatMovementUsed}
-          onSetMovementUsed={setCombatMovementUsed}
-          onSetCombatMoving={setCombatMoving}
-          combatMoving={combatMoving}
-          onStartAoePlacement={handleStartAoePlacement}
-          aoeState={aoeState}
-          onConfirmAoe={handleConfirmAoe}
-          onCancelAoe={handleCancelAoe}
-        />
-      )}
-
-      {isDM && currentToken && currentToken.type === 'character' && (
-        <div className="border border-border rounded p-2">
-          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-1">
-            Vision — {currentToken.label}
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => updateTokenVision(currentToken.id, Math.max(1, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) - 2))}
-              className="tactical-card !p-1 px-1"
-            >
-              <Minus className="w-3 h-3" />
-            </button>
-            <span className="font-mono text-[10px] text-foreground flex-1 text-center">
-              {Math.round((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize * ftPerCell)}ft
-            </span>
-            <button
-              onClick={() => updateTokenVision(currentToken.id, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) + 2)}
-              className="tactical-card !p-1 px-1"
-            >
-              <Plus className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isDM && obstacles.length > 0 && (
-        <div className="text-[9px] font-mono text-muted-foreground px-1">
-          {obstacles.length} obstacle{obstacles.length !== 1 ? 's' : ''} · {obstacles.filter(o => o.blocksVision).length} vision · {obstacles.filter(o => o.blocksMovement).length} movement
-        </div>
-      )}
-    </>
-  );
-
   return (
-    <div className="relative w-full h-full flex flex-col md:flex-row">
+    <div className="relative w-full h-full flex">
       {/* Main canvas area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Toolbar — scrollable horizontally on mobile */}
-        <div className="flex items-center gap-1 p-2 bg-card border-b border-border shrink-0 overflow-x-auto scrollbar-none">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Toolbar */}
+        <div className="flex items-center gap-1 p-2 bg-card border-b border-border flex-wrap shrink-0">
           <button onClick={() => setZoom(z => Math.min(5, z + 0.2))} className="tactical-card !p-1 px-2" title="Zoom in">
             <ZoomIn className="w-4 h-4" />
           </button>
@@ -715,9 +592,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           onPointerUp={() => { handlePointerUp(); handleTokenPointerUp(); }}
           onClick={handleCanvasClick}
           onMouseMove={handleCanvasMouseMove}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
           style={{ touchAction: 'none' }}
         >
           <div
@@ -823,8 +697,6 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                   onPointerDown={(e) => handleTokenPointerDown(e, token.id)}
                   onClick={(e) => { e.stopPropagation(); setSelectedToken(token.id); }}
                 >
-                  {/* Invisible larger touch target for mobile */}
-                  <div className="absolute -inset-3 md:-inset-0 rounded-full" />
                   {isCurrent && (
                     <div className="absolute -inset-1.5 rounded-full border-2 border-secondary animate-pulse" />
                   )}
@@ -879,18 +751,18 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           </div>
         </div>
 
-        {/* Token list bar — scrollable on mobile */}
+        {/* Token list bar */}
         {tokens.length > 0 && (
-          <div className="bg-card border-t border-border p-2 flex gap-2 overflow-x-auto scrollbar-none shrink-0">
+          <div className="bg-card border-t border-border p-2 flex gap-2 flex-wrap shrink-0">
             {tokens.map(t => (
               <div
                 key={t.id}
-                className={`flex items-center gap-1 text-[10px] font-mono cursor-pointer rounded px-2 py-1 transition-colors whitespace-nowrap ${
+                className={`flex items-center gap-1 text-[10px] font-mono cursor-pointer rounded px-1 py-0.5 transition-colors ${
                   t.id === selectedToken ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setSelectedToken(t.id)}
               >
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
                 {t.label}
                 {t.hp !== undefined && <span className="text-[8px]">({t.hp}HP)</span>}
                 {isDM && (
@@ -904,56 +776,79 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         )}
       </div>
 
-      {/* Desktop: Right sidebar */}
+      {/* Right sidebar: Initiative + Combat + Vision */}
       <div className="w-56 shrink-0 bg-card border-l border-border overflow-y-auto hidden md:flex flex-col gap-2 p-2">
-        {sidebarContent}
-      </div>
+        <InitiativeTracker
+          tokens={tokens}
+          currentTurnId={currentTurnId}
+          entries={initiativeEntries}
+          setEntries={setInitiativeEntries}
+          onStartCombat={handleStartCombat}
+          onNextTurn={handleNextTurn}
+          onResetCombat={handleResetCombat}
+          combatActive={combatActive}
+          isDM={isDM}
+        />
 
-      {/* Mobile: Bottom sheet toggle + panel */}
-      <div className="md:hidden">
-        <button
-          onClick={() => setMobilePanelOpen(!mobilePanelOpen)}
-          className="fixed bottom-20 right-4 z-50 bg-card border border-border rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
-        >
-          {mobilePanelOpen ? (
-            <X className="w-5 h-5 text-foreground" />
-          ) : (
-            <div className="relative">
-              <Swords className="w-5 h-5 text-foreground" />
-              {combatActive && (
-                <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" />
-              )}
-            </div>
-          )}
-        </button>
+        {combatActive && currentTurnToken && (
+          <CombatPanel
+            token={currentTurnToken}
+            allTokens={tokens}
+            gridSize={gridSize}
+            ftPerCell={ftPerCell}
+            onMoveToken={moveToken}
+            onDamageToken={damageToken}
+            onHealToken={healToken}
+            onEndTurn={() => {
+              setCombatMovementUsed(0);
+              setCombatMoving(false);
+              setAoeState(null);
+              handleNextTurn();
+            }}
+            isCurrentTurn={true}
+            movementUsed={combatMovementUsed}
+            onSetMovementUsed={setCombatMovementUsed}
+            onSetCombatMoving={setCombatMoving}
+            combatMoving={combatMoving}
+            onStartAoePlacement={handleStartAoePlacement}
+            aoeState={aoeState}
+            onConfirmAoe={handleConfirmAoe}
+            onCancelAoe={handleCancelAoe}
+          />
+        )}
 
-        <AnimatePresence>
-          {mobilePanelOpen && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-background/40 z-40"
-                onClick={() => setMobilePanelOpen(false)}
-              />
-              <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-xl max-h-[70vh] overflow-y-auto"
+        {/* Vision radius controls (DM only, per selected character token) */}
+        {isDM && currentToken && currentToken.type === 'character' && (
+          <div className="border border-border rounded p-2">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold mb-1">
+              Vision — {currentToken.label}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => updateTokenVision(currentToken.id, Math.max(1, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) - 2))}
+                className="tactical-card !p-1 px-1"
               >
-                <div className="flex justify-center pt-2 pb-1">
-                  <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-                </div>
-                <div className="p-3 space-y-2">
-                  {sidebarContent}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+                <Minus className="w-3 h-3" />
+              </button>
+              <span className="font-mono text-[10px] text-foreground flex-1 text-center">
+                {Math.round((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize * ftPerCell)}ft
+              </span>
+              <button
+                onClick={() => updateTokenVision(currentToken.id, ((currentToken.visionRadius ?? DEFAULT_VISION_CELLS * gridSize) / gridSize) + 2)}
+                className="tactical-card !p-1 px-1"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Obstacle count */}
+        {isDM && obstacles.length > 0 && (
+          <div className="text-[9px] font-mono text-muted-foreground px-1">
+            {obstacles.length} obstacle{obstacles.length !== 1 ? 's' : ''} · {obstacles.filter(o => o.blocksVision).length} vision · {obstacles.filter(o => o.blocksMovement).length} movement
+          </div>
+        )}
       </div>
     </div>
   );
