@@ -590,7 +590,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           ref={containerRef}
           className={`flex-1 overflow-hidden relative bg-muted/30 ${
             aoeState && !aoeState.placedX ? 'cursor-crosshair' :
-            obstacleTool === 'line' || obstacleTool === 'rect' ? 'cursor-crosshair' :
+            obstacleTool === 'line' || obstacleTool === 'rect' || obstacleTool === 'opening' ? 'cursor-crosshair' :
             combatMoving ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
           }`}
           onWheel={handleWheel}
