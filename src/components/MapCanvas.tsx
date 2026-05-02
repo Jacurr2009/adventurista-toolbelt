@@ -76,6 +76,16 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [obstacles, setObstacles] = useState<Obstacle[]>(() => loadObstacles(mapId));
   const [obstacleTool, setObstacleTool] = useState<ObstacleTool>(null);
 
+  // Fog of war resolution (sub-cells per grid cell)
+  const [fogResolution, setFogResolution] = useState<number>(() => {
+    const saved = localStorage.getItem(`map-fog-res-${mapId}`);
+    const n = saved ? parseInt(saved, 10) : 4;
+    return Number.isFinite(n) && n >= 1 && n <= 8 ? n : 4;
+  });
+  useEffect(() => {
+    localStorage.setItem(`map-fog-res-${mapId}`, String(fogResolution));
+  }, [fogResolution, mapId]);
+
   // DM preview player vision
   const [showPlayerPreview, setShowPlayerPreview] = useState(false);
 
