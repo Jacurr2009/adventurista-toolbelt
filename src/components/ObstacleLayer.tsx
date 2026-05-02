@@ -164,10 +164,10 @@ export function ObstacleLayer({
     setSelectedId(null);
   }, [selectedId, obstacles, setObstacles]);
 
-  const toggleProp = useCallback((prop: 'blocksVision' | 'blocksMovement') => {
+  const toggleProp = useCallback((prop: 'blocksVision' | 'blocksMovement' | 'isOpening') => {
     if (!selectedId) return;
     setObstacles(obstacles.map(o =>
-      o.id === selectedId ? { ...o, [prop]: !o[prop] } : o
+      o.id === selectedId ? { ...o, [prop]: !o[prop] } as Obstacle : o
     ));
   }, [selectedId, obstacles, setObstacles]);
 
@@ -315,7 +315,7 @@ export function ObstacleLayer({
             <input
               type="checkbox"
               checked={!!selected.isOpening}
-              onChange={() => toggleProp('isOpening' as 'blocksVision')}
+              onChange={() => toggleProp('isOpening')}
               className="accent-secondary"
             />
             Reverse (opening)
