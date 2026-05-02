@@ -693,6 +693,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               obstacles={obstacles}
               isDM={isDM}
               showPlayerPreview={showPlayerPreview}
+              resolution={fogResolution}
             />
 
             {/* AoE overlay */}
