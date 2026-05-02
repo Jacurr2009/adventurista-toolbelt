@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import { Obstacle } from '@/lib/obstacles';
-import { isCellVisible } from '@/lib/visibility';
+import { isVisible } from '@/lib/visibility';
 
 interface FogOfWarLayerProps {
   gridSize: number;
@@ -11,51 +11,73 @@ interface FogOfWarLayerProps {
   obstacles: Obstacle[];
   isDM: boolean;
   showPlayerPreview: boolean;
+  /** Sub-cells per grid cell for higher-resolution fog. Default 4 = 16 fog cells per grid cell. */
+  resolution?: number;
 }
 
 export function FogOfWarLayer({
-  gridSize, gridCols, gridRows, viewers, obstacles, isDM, showPlayerPreview,
+  gridSize, gridCols, gridRows, imgSize, viewers, obstacles, isDM, showPlayerPreview,
+  resolution = 4,
 }: FogOfWarLayerProps) {
-  const visibleCells = useMemo(() => {
-    const visible = new Set<string>();
-    for (let r = 0; r < gridRows; r++) {
-      for (let c = 0; c < gridCols; c++) {
-        if (isCellVisible(c, r, gridSize, viewers, obstacles)) {
-          visible.add(`${c},${r}`);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const showFog = !isDM || showPlayerPreview;
+
+  useEffect(() => {
+    if (!showFog) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const w = imgSize.w;
+    const h = imgSize.h;
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Fill everything with fog
+    const fogAlpha = showPlayerPreview ? 0.6 : 0.95;
+    // Use background-derived dark fill; fall back to near-black
+    ctx.fillStyle = `rgba(10, 10, 14, ${fogAlpha})`;
+    ctx.fillRect(0, 0, w, h);
+
+    if (viewers.length === 0) return;
+
+    const subSize = gridSize / resolution;
+    const subCols = Math.ceil(w / subSize);
+    const subRows = Math.ceil(h / subSize);
+
+    // Punch out visible sub-cells
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+
+    for (let r = 0; r < subRows; r++) {
+      for (let c = 0; c < subCols; c++) {
+        const cx = c * subSize + subSize / 2;
+        const cy = r * subSize + subSize / 2;
+        if (isVisible(cx, cy, viewers, obstacles)) {
+          // Slight overlap (+0.5) to avoid sub-pixel seams
+          ctx.fillRect(c * subSize, r * subSize, subSize + 0.5, subSize + 0.5);
         }
       }
     }
-    return visible;
-  }, [gridSize, gridCols, gridRows, viewers, obstacles]);
 
-  // DM sees everything unless previewing player vision
-  const showFog = !isDM || showPlayerPreview;
+    ctx.globalCompositeOperation = 'source-over';
+  }, [showFog, imgSize.w, imgSize.h, gridSize, resolution, viewers, obstacles, showPlayerPreview]);
+
   if (!showFog) return null;
 
   return (
-    <div className="absolute inset-0" style={{ pointerEvents: 'none', zIndex: 25 }}>
-      {Array.from({ length: gridRows }, (_, row) =>
-        Array.from({ length: gridCols }, (_, col) => {
-          const key = `${col},${row}`;
-          const visible = visibleCells.has(key);
-          if (visible) return null;
-          return (
-            <div
-              key={key}
-              className="absolute"
-              style={{
-                left: col * gridSize,
-                top: row * gridSize,
-                width: gridSize,
-                height: gridSize,
-                backgroundColor: showPlayerPreview
-                  ? 'hsl(var(--background) / 0.6)'
-                  : 'hsl(var(--background) / 0.95)',
-              }}
-            />
-          );
-        })
-      )}
-    </div>
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0"
+      style={{
+        width: imgSize.w,
+        height: imgSize.h,
+        pointerEvents: 'none',
+        zIndex: 25,
+      }}
+    />
   );
 }

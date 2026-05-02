@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Obstacle, ObstacleLine, ObstacleRect, makeId } from '@/lib/obstacles';
 
-export type ObstacleTool = 'select' | 'line' | 'rect' | null;
+export type ObstacleTool = 'select' | 'line' | 'rect' | 'opening' | null;
 
 interface ObstacleLayerProps {
   obstacles: Obstacle[];
@@ -21,6 +21,7 @@ interface DragState {
   obstacleId?: string;
   resizeHandle?: string;
   origObstacle?: Obstacle;
+  isOpening?: boolean;
 }
 
 export function ObstacleLayer({
@@ -46,8 +47,9 @@ export function ObstacleLayer({
     e.stopPropagation();
     const p = toLocal(e);
 
-    if (tool === 'line' || tool === 'rect') {
-      setDragState({ type: tool === 'line' ? 'draw-line' : 'draw-rect', startX: p.x, startY: p.y });
+    if (tool === 'line' || tool === 'rect' || tool === 'opening') {
+      const drawType: 'draw-line' | 'draw-rect' = tool === 'line' ? 'draw-line' : 'draw-rect';
+      setDragState({ type: drawType, startX: p.x, startY: p.y, isOpening: tool === 'opening' });
       setPreview({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
       setSelectedId(null);
     } else if (tool === 'select') {
@@ -124,12 +126,15 @@ export function ObstacleLayer({
       const dx = preview.x2 - preview.x1;
       const dy = preview.y2 - preview.y1;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      const isOpening = !!dragState.isOpening;
       if (dist > 5) {
         if (dragState.type === 'draw-line') {
           const newObs: ObstacleLine = {
             id: makeId(), type: 'line',
             x1: preview.x1, y1: preview.y1, x2: preview.x2, y2: preview.y2,
-            blocksVision: true, blocksMovement: false,
+            blocksVision: true,
+            blocksMovement: isOpening, // openings carve both by default
+            isOpening,
           };
           setObstacles([...obstacles, newObs]);
           setSelectedId(newObs.id);
@@ -140,7 +145,9 @@ export function ObstacleLayer({
           const h = Math.abs(dy);
           const newObs: ObstacleRect = {
             id: makeId(), type: 'rect', x, y, w, h,
-            blocksVision: true, blocksMovement: false,
+            blocksVision: true,
+            blocksMovement: isOpening,
+            isOpening,
           };
           setObstacles([...obstacles, newObs]);
           setSelectedId(newObs.id);
@@ -157,10 +164,10 @@ export function ObstacleLayer({
     setSelectedId(null);
   }, [selectedId, obstacles, setObstacles]);
 
-  const toggleProp = useCallback((prop: 'blocksVision' | 'blocksMovement') => {
+  const toggleProp = useCallback((prop: 'blocksVision' | 'blocksMovement' | 'isOpening') => {
     if (!selectedId) return;
     setObstacles(obstacles.map(o =>
-      o.id === selectedId ? { ...o, [prop]: !o[prop] } : o
+      o.id === selectedId ? { ...o, [prop]: !o[prop] } as Obstacle : o
     ));
   }, [selectedId, obstacles, setObstacles]);
 
@@ -198,9 +205,11 @@ export function ObstacleLayer({
         {/* Render obstacles */}
         {obstacles.map(obs => {
           const isSelected = obs.id === selectedId;
-          const strokeColor = obs.blocksVision
-            ? 'hsl(0, 72%, 51%)'
-            : 'hsl(45, 93%, 47%)';
+          const strokeColor = obs.isOpening
+            ? 'hsl(180, 80%, 50%)' // cyan = opening (window/door)
+            : obs.blocksVision
+              ? 'hsl(0, 72%, 51%)'
+              : 'hsl(45, 93%, 47%)';
           const opacity = showForPlayer ? 0 : (isDM ? 0.7 : 0);
 
           if (obs.type === 'line') {
@@ -300,8 +309,17 @@ export function ObstacleLayer({
           style={{ pointerEvents: 'auto' }}
         >
           <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
-            {selected.type === 'line' ? 'Line' : 'Rectangle'} Obstacle
+            {selected.isOpening ? 'Opening' : selected.type === 'line' ? 'Line' : 'Rectangle'} Obstacle
           </p>
+          <label className="flex items-center gap-2 text-[10px] font-mono text-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!selected.isOpening}
+              onChange={() => toggleProp('isOpening')}
+              className="accent-secondary"
+            />
+            Reverse (opening)
+          </label>
           <label className="flex items-center gap-2 text-[10px] font-mono text-foreground cursor-pointer">
             <input
               type="checkbox"
@@ -309,7 +327,7 @@ export function ObstacleLayer({
               onChange={() => toggleProp('blocksVision')}
               className="accent-destructive"
             />
-            Blocks Vision
+            {selected.isOpening ? 'Carves Vision' : 'Blocks Vision'}
           </label>
           <label className="flex items-center gap-2 text-[10px] font-mono text-foreground cursor-pointer">
             <input
@@ -318,7 +336,7 @@ export function ObstacleLayer({
               onChange={() => toggleProp('blocksMovement')}
               className="accent-destructive"
             />
-            Blocks Movement
+            {selected.isOpening ? 'Carves Movement' : 'Blocks Movement'}
           </label>
           <button
             onClick={deleteSelected}

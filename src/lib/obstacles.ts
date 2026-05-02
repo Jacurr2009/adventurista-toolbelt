@@ -9,6 +9,7 @@ export interface ObstacleLine {
   y2: number;
   blocksVision: boolean;
   blocksMovement: boolean;
+  isOpening?: boolean; // reverse block — carves through walls
 }
 
 export interface ObstacleRect {
@@ -20,6 +21,7 @@ export interface ObstacleRect {
   h: number;
   blocksVision: boolean;
   blocksMovement: boolean;
+  isOpening?: boolean; // reverse block — carves through walls
 }
 
 export type Obstacle = ObstacleLine | ObstacleRect;
@@ -49,4 +51,25 @@ export function getObstacleSegments(obs: Obstacle): [number, number, number, num
     [x + w, y + h, x, y + h],
     [x, y + h, x, y],
   ];
+}
+
+/** Test if a point lies inside any opening rect/line bounding box (inclusive). */
+export function pointInOpening(px: number, py: number, openings: Obstacle[]): boolean {
+  for (const op of openings) {
+    if (op.type === 'rect') {
+      if (px >= op.x && px <= op.x + op.w && py >= op.y && py <= op.y + op.h) return true;
+    } else {
+      // Treat line opening as a thin band
+      const tol = 6;
+      const dx = op.x2 - op.x1, dy = op.y2 - op.y1;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) continue;
+      let t = ((px - op.x1) * dx + (py - op.y1) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      const projX = op.x1 + t * dx, projY = op.y1 + t * dy;
+      const d = Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
+      if (d <= tol) return true;
+    }
+  }
+  return false;
 }
