@@ -65,9 +65,23 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const [showGrid, setShowGrid] = useState(true);
-  const [gridSize, setGridSize] = useState(DEFAULT_GRID_SIZE);
-  const [ftPerCell, setFtPerCell] = useState(DEFAULT_FT_PER_CELL);
+  const [showGrid, setShowGrid] = useState<boolean>(() => {
+    const v = localStorage.getItem(`map-show-grid-${mapId}`);
+    return v === null ? true : v === '1';
+  });
+  const [gridSize, setGridSize] = useState<number>(() => {
+    const v = localStorage.getItem(`map-grid-size-${mapId}`);
+    const n = v ? parseInt(v, 10) : DEFAULT_GRID_SIZE;
+    return Number.isFinite(n) && n >= 20 && n <= 100 ? n : DEFAULT_GRID_SIZE;
+  });
+  const [ftPerCell, setFtPerCell] = useState<number>(() => {
+    const v = localStorage.getItem(`map-ft-per-cell-${mapId}`);
+    const n = v ? parseInt(v, 10) : DEFAULT_FT_PER_CELL;
+    return Number.isFinite(n) && n >= 5 && n <= 30 ? n : DEFAULT_FT_PER_CELL;
+  });
+  useEffect(() => { localStorage.setItem(`map-show-grid-${mapId}`, showGrid ? '1' : '0'); }, [showGrid, mapId]);
+  useEffect(() => { localStorage.setItem(`map-grid-size-${mapId}`, String(gridSize)); }, [gridSize, mapId]);
+  useEffect(() => { localStorage.setItem(`map-ft-per-cell-${mapId}`, String(ftPerCell)); }, [ftPerCell, mapId]);
   const [combatMovementUsed, setCombatMovementUsed] = useState(0);
   const [imgSize, setImgSize] = useState({ w: 800, h: 600 });
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
