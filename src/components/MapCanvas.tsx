@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
-  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square,
+  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square, DoorOpen,
 } from 'lucide-react';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { Character } from '@/lib/types';
@@ -509,6 +509,13 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                 title="Draw rectangle obstacle"
               >
                 <Square className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => setObstacleTool(obstacleTool === 'opening' ? null : 'opening')}
+                className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${obstacleTool === 'opening' ? 'border-secondary text-secondary' : ''}`}
+                title="Draw opening (window/door) — carves through walls"
+              >
+                <DoorOpen className="w-3 h-3" />
               </button>
 
               <div className="w-px h-5 bg-border mx-1" />
