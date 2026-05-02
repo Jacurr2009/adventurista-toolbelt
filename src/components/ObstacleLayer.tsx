@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Obstacle, ObstacleLine, ObstacleRect, makeId } from '@/lib/obstacles';
 
-export type ObstacleTool = 'select' | 'line' | 'rect' | null;
+export type ObstacleTool = 'select' | 'line' | 'rect' | 'opening' | null;
 
 interface ObstacleLayerProps {
   obstacles: Obstacle[];
@@ -46,7 +46,7 @@ export function ObstacleLayer({
     e.stopPropagation();
     const p = toLocal(e);
 
-    if (tool === 'line' || tool === 'rect') {
+    if (tool === 'line' || tool === 'rect' || tool === 'opening') {
       setDragState({ type: tool === 'line' ? 'draw-line' : 'draw-rect', startX: p.x, startY: p.y });
       setPreview({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
       setSelectedId(null);
