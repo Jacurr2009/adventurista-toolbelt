@@ -553,6 +553,18 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                 {showPlayerPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                 Player View
               </button>
+
+              {/* Fog resolution */}
+              <div className="flex items-center gap-1" title="Fog detail (sub-cells per grid cell)">
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Fog</span>
+                <button onClick={() => setFogResolution(r => Math.max(1, r - 1))} className="tactical-card !p-1 px-1">
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span className="font-mono text-[9px] text-muted-foreground w-6 text-center">{fogResolution}x</span>
+                <button onClick={() => setFogResolution(r => Math.min(8, r + 1))} className="tactical-card !p-1 px-1">
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
             </>
           )}
 
