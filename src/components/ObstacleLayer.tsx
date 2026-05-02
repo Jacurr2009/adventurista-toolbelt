@@ -205,9 +205,11 @@ export function ObstacleLayer({
         {/* Render obstacles */}
         {obstacles.map(obs => {
           const isSelected = obs.id === selectedId;
-          const strokeColor = obs.blocksVision
-            ? 'hsl(0, 72%, 51%)'
-            : 'hsl(45, 93%, 47%)';
+          const strokeColor = obs.isOpening
+            ? 'hsl(180, 80%, 50%)' // cyan = opening (window/door)
+            : obs.blocksVision
+              ? 'hsl(0, 72%, 51%)'
+              : 'hsl(45, 93%, 47%)';
           const opacity = showForPlayer ? 0 : (isDM ? 0.7 : 0);
 
           if (obs.type === 'line') {
@@ -307,8 +309,17 @@ export function ObstacleLayer({
           style={{ pointerEvents: 'auto' }}
         >
           <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
-            {selected.type === 'line' ? 'Line' : 'Rectangle'} Obstacle
+            {selected.isOpening ? 'Opening' : selected.type === 'line' ? 'Line' : 'Rectangle'} Obstacle
           </p>
+          <label className="flex items-center gap-2 text-[10px] font-mono text-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!selected.isOpening}
+              onChange={() => toggleProp('isOpening' as 'blocksVision')}
+              className="accent-secondary"
+            />
+            Reverse (opening)
+          </label>
           <label className="flex items-center gap-2 text-[10px] font-mono text-foreground cursor-pointer">
             <input
               type="checkbox"
@@ -316,7 +327,7 @@ export function ObstacleLayer({
               onChange={() => toggleProp('blocksVision')}
               className="accent-destructive"
             />
-            Blocks Vision
+            {selected.isOpening ? 'Carves Vision' : 'Blocks Vision'}
           </label>
           <label className="flex items-center gap-2 text-[10px] font-mono text-foreground cursor-pointer">
             <input
@@ -325,7 +336,7 @@ export function ObstacleLayer({
               onChange={() => toggleProp('blocksMovement')}
               className="accent-destructive"
             />
-            Blocks Movement
+            {selected.isOpening ? 'Carves Movement' : 'Blocks Movement'}
           </label>
           <button
             onClick={deleteSelected}
