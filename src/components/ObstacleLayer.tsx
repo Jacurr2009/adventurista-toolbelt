@@ -21,6 +21,7 @@ interface DragState {
   obstacleId?: string;
   resizeHandle?: string;
   origObstacle?: Obstacle;
+  isOpening?: boolean;
 }
 
 export function ObstacleLayer({
@@ -47,7 +48,8 @@ export function ObstacleLayer({
     const p = toLocal(e);
 
     if (tool === 'line' || tool === 'rect' || tool === 'opening') {
-      setDragState({ type: tool === 'line' ? 'draw-line' : 'draw-rect', startX: p.x, startY: p.y });
+      const drawType: 'draw-line' | 'draw-rect' = tool === 'line' ? 'draw-line' : 'draw-rect';
+      setDragState({ type: drawType, startX: p.x, startY: p.y, isOpening: tool === 'opening' });
       setPreview({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
       setSelectedId(null);
     } else if (tool === 'select') {
@@ -124,12 +126,15 @@ export function ObstacleLayer({
       const dx = preview.x2 - preview.x1;
       const dy = preview.y2 - preview.y1;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      const isOpening = !!dragState.isOpening;
       if (dist > 5) {
         if (dragState.type === 'draw-line') {
           const newObs: ObstacleLine = {
             id: makeId(), type: 'line',
             x1: preview.x1, y1: preview.y1, x2: preview.x2, y2: preview.y2,
-            blocksVision: true, blocksMovement: false,
+            blocksVision: true,
+            blocksMovement: isOpening, // openings carve both by default
+            isOpening,
           };
           setObstacles([...obstacles, newObs]);
           setSelectedId(newObs.id);
@@ -140,7 +145,9 @@ export function ObstacleLayer({
           const h = Math.abs(dy);
           const newObs: ObstacleRect = {
             id: makeId(), type: 'rect', x, y, w, h,
-            blocksVision: true, blocksMovement: false,
+            blocksVision: true,
+            blocksMovement: isOpening,
+            isOpening,
           };
           setObstacles([...obstacles, newObs]);
           setSelectedId(newObs.id);
