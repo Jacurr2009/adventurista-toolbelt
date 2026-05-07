@@ -2,11 +2,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useMultiplayer, MultiplayerMessage } from '@/lib/MultiplayerContext';
 import { MapToken } from '@/components/MapCanvas';
 import { Obstacle } from '@/lib/obstacles';
+import { MapObject } from '@/lib/mapObjects';
 import { InitiativeEntry } from '@/components/InitiativeTracker';
 
 export interface MapSyncState {
   tokens: MapToken[];
   obstacles: Obstacle[];
+  mapObjects?: MapObject[];
   initiativeEntries: InitiativeEntry[];
   combatActive: boolean;
   currentTurnIndex: number;
