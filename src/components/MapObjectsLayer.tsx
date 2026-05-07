@@ -18,7 +18,7 @@ type DragMode =
   | { kind: 'rotate'; id: string; cx: number; cy: number; startAngle: number; startRotation: number }
   | null;
 
-export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, setSelectedId }: Props) {
+export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, setSelectedId, imgSize }: Props) {
   const [drag, setDrag] = useState<DragMode>(null);
   const layerRef = useRef<HTMLDivElement>(null);
 
