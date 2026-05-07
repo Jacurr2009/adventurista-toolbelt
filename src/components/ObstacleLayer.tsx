@@ -32,7 +32,7 @@ export function ObstacleLayer({
   const [preview, setPreview] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const toLocal = useCallback((e: React.MouseEvent): { x: number; y: number } => {
+  const toLocal = useCallback((e: React.PointerEvent): { x: number; y: number } => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
@@ -42,7 +42,7 @@ export function ObstacleLayer({
     };
   }, [zoom]);
 
-  const handlePointerDown = useCallback((e: React.MouseEvent) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!isDM || showForPlayer) return;
     e.stopPropagation();
     const p = toLocal(e);
@@ -69,7 +69,7 @@ export function ObstacleLayer({
     }
   }, [isDM, showForPlayer, tool, obstacles, toLocal]);
 
-  const handlePointerMove = useCallback((e: React.MouseEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragState) return;
     e.stopPropagation();
     const p = toLocal(e);
@@ -118,7 +118,7 @@ export function ObstacleLayer({
     }
   }, [dragState, toLocal, obstacles, setObstacles]);
 
-  const handlePointerUp = useCallback((e: React.MouseEvent) => {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (!dragState) return;
     e.stopPropagation();
 
@@ -195,12 +195,14 @@ export function ObstacleLayer({
         style={{
           pointerEvents: isInteractive ? 'auto' : 'none',
           zIndex: 15,
+          touchAction: isInteractive ? 'none' : 'auto',
         }}
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        onMouseDown={handlePointerDown}
-        onMouseMove={handlePointerMove}
-        onMouseUp={handlePointerUp}
+        onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); handlePointerDown(e); }}
+        onPointerMove={handlePointerMove}
+        onPointerUp={(e) => { (e.target as Element).releasePointerCapture?.(e.pointerId); handlePointerUp(e); }}
+        onPointerCancel={handlePointerUp}
       >
         {/* Render obstacles */}
         {obstacles.map(obs => {
