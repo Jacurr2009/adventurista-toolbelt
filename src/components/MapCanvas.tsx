@@ -752,6 +752,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               zoom={zoom}
               selectedId={selectedObjectId}
               setSelectedId={setSelectedObjectId}
+              imgSize={imgSize}
             />
 
             {/* Obstacle layer */}
