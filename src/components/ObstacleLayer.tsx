@@ -32,7 +32,7 @@ export function ObstacleLayer({
   const [preview, setPreview] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const toLocal = useCallback((e: React.MouseEvent): { x: number; y: number } => {
+  const toLocal = useCallback((e: React.PointerEvent): { x: number; y: number } => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
@@ -42,7 +42,7 @@ export function ObstacleLayer({
     };
   }, [zoom]);
 
-  const handlePointerDown = useCallback((e: React.MouseEvent) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!isDM || showForPlayer) return;
     e.stopPropagation();
     const p = toLocal(e);
