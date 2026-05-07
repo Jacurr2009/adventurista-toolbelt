@@ -447,6 +447,40 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     ));
   };
 
+  const handleObjectFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      // Determine intrinsic dimensions, clamp to a sensible default
+      const img = new window.Image();
+      img.onload = () => {
+        const maxSide = Math.min(gridSize * 4, 200);
+        const ratio = img.width / img.height;
+        let w = maxSide;
+        let h = maxSide / ratio;
+        if (h > maxSide) { h = maxSide; w = maxSide * ratio; }
+        // Place at viewport center in image coords
+        const rect = containerRef.current?.getBoundingClientRect();
+        const cx = rect ? (rect.width / 2 - pan.x) / zoom : imgSize.w / 2;
+        const cy = rect ? (rect.height / 2 - pan.y) / zoom : imgSize.h / 2;
+        const newObj: MapObject = {
+          id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          image: dataUrl,
+          x: cx, y: cy,
+          width: w, height: h,
+          rotation: 0,
+        };
+        setMapObjects(prev => [...prev, newObj]);
+        setSelectedObjectId(newObj.id);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
 
   const handleStartCombat = () => {
