@@ -109,8 +109,8 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
   return (
     <div
       ref={layerRef}
-      className="absolute inset-0"
-      style={{ pointerEvents: 'none' }}
+      className="absolute top-0 left-0"
+      style={{ width: imgSize.w, height: imgSize.h, pointerEvents: 'none' }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
