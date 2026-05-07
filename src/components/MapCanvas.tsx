@@ -92,6 +92,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [obstacles, setObstacles] = useState<Obstacle[]>(() => loadObstacles(mapId));
   const [obstacleTool, setObstacleTool] = useState<ObstacleTool>(null);
 
+  // Map objects (placeable images)
+  const [mapObjects, setMapObjects] = useState<MapObject[]>(() => loadMapObjects(mapId));
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const objectFileInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { saveMapObjects(mapId, mapObjects); }, [mapObjects, mapId]);
+
   // Fog of war resolution (sub-cells per grid cell)
   const [fogResolution, setFogResolution] = useState<number>(() => {
     const saved = localStorage.getItem(`map-fog-res-${mapId}`);
