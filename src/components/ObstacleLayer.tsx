@@ -69,7 +69,7 @@ export function ObstacleLayer({
     }
   }, [isDM, showForPlayer, tool, obstacles, toLocal]);
 
-  const handlePointerMove = useCallback((e: React.MouseEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragState) return;
     e.stopPropagation();
     const p = toLocal(e);
