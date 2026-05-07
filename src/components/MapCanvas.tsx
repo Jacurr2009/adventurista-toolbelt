@@ -744,6 +744,16 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               </svg>
             )}
 
+            {/* Map image objects (placeable images) */}
+            <MapObjectsLayer
+              objects={mapObjects}
+              setObjects={setMapObjects}
+              isDM={isDM}
+              zoom={zoom}
+              selectedId={selectedObjectId}
+              setSelectedId={setSelectedObjectId}
+            />
+
             {/* Obstacle layer */}
             <ObstacleLayer
               obstacles={obstacles}
