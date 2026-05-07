@@ -608,6 +608,24 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
+
+              <div className="w-px h-5 bg-border mx-1" />
+
+              {/* Add image object */}
+              <input
+                ref={objectFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleObjectFileSelected}
+              />
+              <button
+                onClick={() => objectFileInputRef.current?.click()}
+                className="tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold"
+                title="Add image object to map"
+              >
+                <ImageIcon className="w-3 h-3" /> Object
+              </button>
             </>
           )}
 
