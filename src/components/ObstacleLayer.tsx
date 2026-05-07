@@ -118,7 +118,7 @@ export function ObstacleLayer({
     }
   }, [dragState, toLocal, obstacles, setObstacles]);
 
-  const handlePointerUp = useCallback((e: React.MouseEvent) => {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (!dragState) return;
     e.stopPropagation();
 
@@ -198,9 +198,10 @@ export function ObstacleLayer({
         }}
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        onMouseDown={handlePointerDown}
-        onMouseMove={handlePointerMove}
-        onMouseUp={handlePointerUp}
+        onPointerDown={(e) => { (e.target as Element).setPointerCapture?.(e.pointerId); handlePointerDown(e); }}
+        onPointerMove={handlePointerMove}
+        onPointerUp={(e) => { (e.target as Element).releasePointerCapture?.(e.pointerId); handlePointerUp(e); }}
+        onPointerCancel={handlePointerUp}
       >
         {/* Render obstacles */}
         {obstacles.map(obs => {
