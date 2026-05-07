@@ -127,13 +127,14 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
   // Multiplayer sync
   const getState = useCallback((): MapSyncState => ({
-    tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex,
+    tokens, obstacles, mapObjects, initiativeEntries, combatActive, currentTurnIndex,
     gridSize, ftPerCell, activeMapId: mapId,
-  }), [tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, mapId]);
+  }), [tokens, obstacles, mapObjects, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, mapId]);
 
   const applyState = useCallback((state: Partial<MapSyncState>) => {
     if (state.tokens) setTokens(state.tokens);
     if (state.obstacles) setObstacles(state.obstacles);
+    if (state.mapObjects) setMapObjects(state.mapObjects);
     if (state.initiativeEntries) setInitiativeEntries(state.initiativeEntries);
     if (state.combatActive !== undefined) setCombatActive(state.combatActive);
     if (state.currentTurnIndex !== undefined) setCurrentTurnIndex(state.currentTurnIndex);
@@ -162,7 +163,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     if (isHost && connected) {
       broadcastState();
     }
-  }, [tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, isHost, connected, broadcastState]);
+  }, [tokens, obstacles, mapObjects, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, isHost, connected, broadcastState]);
 
   const currentTurnId = combatActive && initiativeEntries.length > 0
     ? initiativeEntries[currentTurnIndex]?.tokenId
