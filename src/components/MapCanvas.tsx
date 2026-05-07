@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
-  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square, DoorOpen,
+  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square, DoorOpen, Image as ImageIcon,
 } from 'lucide-react';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { Character } from '@/lib/types';
@@ -17,6 +17,8 @@ import { FogOfWarLayer } from './FogOfWarLayer';
 import { isVisible, isMovementBlocked } from '@/lib/visibility';
 import { AoeOverlay, AoeState, getAoeTargets } from './AoeOverlay';
 import { Spell } from '@/lib/spells';
+import { MapObject, loadMapObjects, saveMapObjects } from '@/lib/mapObjects';
+import { MapObjectsLayer } from './MapObjectsLayer';
 
 export interface MapToken {
   id: string;
@@ -90,6 +92,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const [obstacles, setObstacles] = useState<Obstacle[]>(() => loadObstacles(mapId));
   const [obstacleTool, setObstacleTool] = useState<ObstacleTool>(null);
 
+  // Map objects (placeable images)
+  const [mapObjects, setMapObjects] = useState<MapObject[]>(() => loadMapObjects(mapId));
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const objectFileInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { saveMapObjects(mapId, mapObjects); }, [mapObjects, mapId]);
+
   // Fog of war resolution (sub-cells per grid cell)
   const [fogResolution, setFogResolution] = useState<number>(() => {
     const saved = localStorage.getItem(`map-fog-res-${mapId}`);
@@ -119,13 +127,14 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
   // Multiplayer sync
   const getState = useCallback((): MapSyncState => ({
-    tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex,
+    tokens, obstacles, mapObjects, initiativeEntries, combatActive, currentTurnIndex,
     gridSize, ftPerCell, activeMapId: mapId,
-  }), [tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, mapId]);
+  }), [tokens, obstacles, mapObjects, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, mapId]);
 
   const applyState = useCallback((state: Partial<MapSyncState>) => {
     if (state.tokens) setTokens(state.tokens);
     if (state.obstacles) setObstacles(state.obstacles);
+    if (state.mapObjects) setMapObjects(state.mapObjects);
     if (state.initiativeEntries) setInitiativeEntries(state.initiativeEntries);
     if (state.combatActive !== undefined) setCombatActive(state.combatActive);
     if (state.currentTurnIndex !== undefined) setCurrentTurnIndex(state.currentTurnIndex);
@@ -154,7 +163,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     if (isHost && connected) {
       broadcastState();
     }
-  }, [tokens, obstacles, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, isHost, connected, broadcastState]);
+  }, [tokens, obstacles, mapObjects, initiativeEntries, combatActive, currentTurnIndex, gridSize, ftPerCell, isHost, connected, broadcastState]);
 
   const currentTurnId = combatActive && initiativeEntries.length > 0
     ? initiativeEntries[currentTurnIndex]?.tokenId
@@ -438,6 +447,40 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     ));
   };
 
+  const handleObjectFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      // Determine intrinsic dimensions, clamp to a sensible default
+      const img = new window.Image();
+      img.onload = () => {
+        const maxSide = Math.min(gridSize * 4, 200);
+        const ratio = img.width / img.height;
+        let w = maxSide;
+        let h = maxSide / ratio;
+        if (h > maxSide) { h = maxSide; w = maxSide * ratio; }
+        // Place at viewport center in image coords
+        const rect = containerRef.current?.getBoundingClientRect();
+        const cx = rect ? (rect.width / 2 - pan.x) / zoom : imgSize.w / 2;
+        const cy = rect ? (rect.height / 2 - pan.y) / zoom : imgSize.h / 2;
+        const newObj: MapObject = {
+          id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          image: dataUrl,
+          x: cx, y: cy,
+          width: w, height: h,
+          rotation: 0,
+        };
+        setMapObjects(prev => [...prev, newObj]);
+        setSelectedObjectId(newObj.id);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
 
   const handleStartCombat = () => {
@@ -565,6 +608,24 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
+
+              <div className="w-px h-5 bg-border mx-1" />
+
+              {/* Add image object */}
+              <input
+                ref={objectFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleObjectFileSelected}
+              />
+              <button
+                onClick={() => objectFileInputRef.current?.click()}
+                className="tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold"
+                title="Add image object to map"
+              >
+                <ImageIcon className="w-3 h-3" /> Object
+              </button>
             </>
           )}
 
@@ -682,6 +743,17 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                 ))}
               </svg>
             )}
+
+            {/* Map image objects (placeable images) */}
+            <MapObjectsLayer
+              objects={mapObjects}
+              setObjects={setMapObjects}
+              isDM={isDM}
+              zoom={zoom}
+              selectedId={selectedObjectId}
+              setSelectedId={setSelectedObjectId}
+              imgSize={imgSize}
+            />
 
             {/* Obstacle layer */}
             <ObstacleLayer
