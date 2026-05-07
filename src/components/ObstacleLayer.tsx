@@ -195,6 +195,7 @@ export function ObstacleLayer({
         style={{
           pointerEvents: isInteractive ? 'auto' : 'none',
           zIndex: 15,
+          touchAction: isInteractive ? 'none' : 'auto',
         }}
         tabIndex={0}
         onKeyDown={handleKeyDown}
