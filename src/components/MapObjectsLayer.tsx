@@ -9,6 +9,7 @@ interface Props {
   zoom: number;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  imgSize: { w: number; h: number };
 }
 
 type DragMode =
