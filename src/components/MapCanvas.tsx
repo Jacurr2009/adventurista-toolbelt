@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
-  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square, DoorOpen,
+  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square, DoorOpen, Image as ImageIcon,
 } from 'lucide-react';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { Character } from '@/lib/types';
@@ -17,6 +17,8 @@ import { FogOfWarLayer } from './FogOfWarLayer';
 import { isVisible, isMovementBlocked } from '@/lib/visibility';
 import { AoeOverlay, AoeState, getAoeTargets } from './AoeOverlay';
 import { Spell } from '@/lib/spells';
+import { MapObject, loadMapObjects, saveMapObjects } from '@/lib/mapObjects';
+import { MapObjectsLayer } from './MapObjectsLayer';
 
 export interface MapToken {
   id: string;
