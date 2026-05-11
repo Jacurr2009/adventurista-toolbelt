@@ -154,6 +154,7 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
               touchAction: 'none',
               zIndex: 15,
             }}
+            data-map-object="true"
             onPointerDown={(e) => handlePointerDownObject(e, obj)}
           >
             <img
