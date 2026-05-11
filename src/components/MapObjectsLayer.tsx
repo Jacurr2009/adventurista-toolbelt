@@ -211,7 +211,7 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
 
       {/* Selected object toolbar (counter-rotated, screen-space) */}
       {isDM && selectedId && (() => {
-        const obj = objects.find(o => o.id === selectedId);
+        const obj = visibleObjects.find(o => o.id === selectedId);
         if (!obj) return null;
         return (
           <div
