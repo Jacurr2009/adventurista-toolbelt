@@ -782,6 +782,19 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               resolution={fogResolution}
             />
 
+            {/* Map image objects flagged always-visible (rendered above fog) */}
+            <MapObjectsLayer
+              objects={mapObjects}
+              setObjects={setMapObjects}
+              isDM={isDM}
+              zoom={zoom}
+              selectedId={selectedObjectId}
+              setSelectedId={setSelectedObjectId}
+              imgSize={imgSize}
+              filter="alwaysVisible"
+              zIndex={30}
+            />
+
             {/* AoE overlay */}
             {aoeState && (
               <AoeOverlay
