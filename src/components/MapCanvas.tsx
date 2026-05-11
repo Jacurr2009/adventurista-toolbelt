@@ -295,6 +295,14 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
   // Canvas click for combat movement or AoE placement
   const handleCanvasClick = (e: React.MouseEvent) => {
+    // Deselect map object when clicking empty map area (not on an object)
+    if (selectedObjectId) {
+      const target = e.target as HTMLElement;
+      // Object layers stop propagation; if a click reaches here it's empty area
+      if (!target.closest('[data-map-object="true"]')) {
+        setSelectedObjectId(null);
+      }
+    }
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
