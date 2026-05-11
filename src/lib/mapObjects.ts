@@ -7,6 +7,8 @@ export interface MapObject {
   height: number;
   rotation: number; // degrees
   locked?: boolean;
+  /** When true, object renders above fog of war and is always visible to players. */
+  alwaysVisible?: boolean;
 }
 
 const key = (mapId: string) => `map-objects-${mapId}`;

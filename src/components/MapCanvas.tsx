@@ -295,6 +295,14 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
   // Canvas click for combat movement or AoE placement
   const handleCanvasClick = (e: React.MouseEvent) => {
+    // Deselect map object when clicking empty map area (not on an object)
+    if (selectedObjectId) {
+      const target = e.target as HTMLElement;
+      // Object layers stop propagation; if a click reaches here it's empty area
+      if (!target.closest('[data-map-object="true"]')) {
+        setSelectedObjectId(null);
+      }
+    }
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -744,7 +752,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               </svg>
             )}
 
-            {/* Map image objects (placeable images) */}
+            {/* Map image objects hidden by fog of war (rendered below fog) */}
             <MapObjectsLayer
               objects={mapObjects}
               setObjects={setMapObjects}
@@ -753,6 +761,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               selectedId={selectedObjectId}
               setSelectedId={setSelectedObjectId}
               imgSize={imgSize}
+              filter="fogged"
+              zIndex={15}
             />
 
             {/* Obstacle layer */}
@@ -778,6 +788,19 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               isDM={isDM}
               showPlayerPreview={showPlayerPreview}
               resolution={fogResolution}
+            />
+
+            {/* Map image objects flagged always-visible (rendered above fog) */}
+            <MapObjectsLayer
+              objects={mapObjects}
+              setObjects={setMapObjects}
+              isDM={isDM}
+              zoom={zoom}
+              selectedId={selectedObjectId}
+              setSelectedId={setSelectedObjectId}
+              imgSize={imgSize}
+              filter="alwaysVisible"
+              zIndex={30}
             />
 
             {/* AoE overlay */}

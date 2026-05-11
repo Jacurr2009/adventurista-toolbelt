@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { MapObject } from '@/lib/mapObjects';
-import { Trash2, Lock, Unlock, RotateCw, Copy } from 'lucide-react';
+import { Trash2, Lock, Unlock, RotateCw, Copy, Eye, EyeOff } from 'lucide-react';
 
 interface Props {
   objects: MapObject[];
@@ -10,6 +10,10 @@ interface Props {
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   imgSize: { w: number; h: number };
+  /** Render only objects matching this visibility flag. Default renders all. */
+  filter?: 'alwaysVisible' | 'fogged';
+  /** zIndex for the layer wrapper. */
+  zIndex?: number;
 }
 
 type DragMode =
@@ -18,7 +22,7 @@ type DragMode =
   | { kind: 'rotate'; id: string; cx: number; cy: number; startAngle: number; startRotation: number }
   | null;
 
-export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, setSelectedId, imgSize }: Props) {
+export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, setSelectedId, imgSize, filter, zIndex }: Props) {
   const [drag, setDrag] = useState<DragMode>(null);
   const layerRef = useRef<HTMLDivElement>(null);
 
@@ -106,16 +110,34 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
     });
   };
 
+  const toggleAlwaysVisible = (id: string) => {
+    setObjects(prev => prev.map(o => o.id === id ? { ...o, alwaysVisible: !o.alwaysVisible } : o));
+  };
+
+  // Esc key to deselect
+  useEffect(() => {
+    if (!isDM || !selectedId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isDM, selectedId, setSelectedId]);
+
+  const visibleObjects = objects.filter(o => {
+    if (filter === 'alwaysVisible') return !!o.alwaysVisible;
+    if (filter === 'fogged') return !o.alwaysVisible;
+    return true;
+  });
+
   return (
     <div
       ref={layerRef}
       className="absolute top-0 left-0"
-      style={{ width: imgSize.w, height: imgSize.h, pointerEvents: 'none' }}
+      style={{ width: imgSize.w, height: imgSize.h, pointerEvents: 'none', zIndex }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
-      {objects.map(obj => {
+      {visibleObjects.map(obj => {
         const selected = isDM && selectedId === obj.id;
         return (
           <div
@@ -132,6 +154,7 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
               touchAction: 'none',
               zIndex: 15,
             }}
+            data-map-object="true"
             onPointerDown={(e) => handlePointerDownObject(e, obj)}
           >
             <img
@@ -189,7 +212,7 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
 
       {/* Selected object toolbar (counter-rotated, screen-space) */}
       {isDM && selectedId && (() => {
-        const obj = objects.find(o => o.id === selectedId);
+        const obj = visibleObjects.find(o => o.id === selectedId);
         if (!obj) return null;
         return (
           <div
@@ -205,6 +228,13 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
           >
             <button onClick={() => toggleLock(obj.id)} className="tactical-card !p-1 px-1.5" title={obj.locked ? 'Unlock' : 'Lock'}>
               {obj.locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+            </button>
+            <button
+              onClick={() => toggleAlwaysVisible(obj.id)}
+              className="tactical-card !p-1 px-1.5"
+              title={obj.alwaysVisible ? 'Hide behind fog of war' : 'Always visible to players'}
+            >
+              {obj.alwaysVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
             </button>
             <button onClick={() => duplicateObj(obj.id)} className="tactical-card !p-1 px-1.5" title="Duplicate">
               <Copy className="w-3 h-3" />
