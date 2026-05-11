@@ -110,16 +110,34 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
     });
   };
 
+  const toggleAlwaysVisible = (id: string) => {
+    setObjects(prev => prev.map(o => o.id === id ? { ...o, alwaysVisible: !o.alwaysVisible } : o));
+  };
+
+  // Esc key to deselect
+  useEffect(() => {
+    if (!isDM || !selectedId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isDM, selectedId, setSelectedId]);
+
+  const visibleObjects = objects.filter(o => {
+    if (filter === 'alwaysVisible') return !!o.alwaysVisible;
+    if (filter === 'fogged') return !o.alwaysVisible;
+    return true;
+  });
+
   return (
     <div
       ref={layerRef}
       className="absolute top-0 left-0"
-      style={{ width: imgSize.w, height: imgSize.h, pointerEvents: 'none' }}
+      style={{ width: imgSize.w, height: imgSize.h, pointerEvents: 'none', zIndex }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
-      {objects.map(obj => {
+      {visibleObjects.map(obj => {
         const selected = isDM && selectedId === obj.id;
         return (
           <div
