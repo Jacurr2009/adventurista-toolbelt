@@ -744,7 +744,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               </svg>
             )}
 
-            {/* Map image objects (placeable images) */}
+            {/* Map image objects hidden by fog of war (rendered below fog) */}
             <MapObjectsLayer
               objects={mapObjects}
               setObjects={setMapObjects}
@@ -753,6 +753,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
               selectedId={selectedObjectId}
               setSelectedId={setSelectedObjectId}
               imgSize={imgSize}
+              filter="fogged"
+              zIndex={15}
             />
 
             {/* Obstacle layer */}
