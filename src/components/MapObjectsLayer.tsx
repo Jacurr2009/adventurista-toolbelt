@@ -228,6 +228,13 @@ export function MapObjectsLayer({ objects, setObjects, isDM, zoom, selectedId, s
             <button onClick={() => toggleLock(obj.id)} className="tactical-card !p-1 px-1.5" title={obj.locked ? 'Unlock' : 'Lock'}>
               {obj.locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
             </button>
+            <button
+              onClick={() => toggleAlwaysVisible(obj.id)}
+              className="tactical-card !p-1 px-1.5"
+              title={obj.alwaysVisible ? 'Hide behind fog of war' : 'Always visible to players'}
+            >
+              {obj.alwaysVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+            </button>
             <button onClick={() => duplicateObj(obj.id)} className="tactical-card !p-1 px-1.5" title="Duplicate">
               <Copy className="w-3 h-3" />
             </button>
