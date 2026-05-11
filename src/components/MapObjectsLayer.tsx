@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { MapObject } from '@/lib/mapObjects';
-import { Trash2, Lock, Unlock, RotateCw, Copy } from 'lucide-react';
+import { Trash2, Lock, Unlock, RotateCw, Copy, Eye, EyeOff } from 'lucide-react';
 
 interface Props {
   objects: MapObject[];
