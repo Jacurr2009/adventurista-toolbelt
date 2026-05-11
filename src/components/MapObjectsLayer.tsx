@@ -10,6 +10,10 @@ interface Props {
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   imgSize: { w: number; h: number };
+  /** Render only objects matching this visibility flag. Default renders all. */
+  filter?: 'alwaysVisible' | 'fogged';
+  /** zIndex for the layer wrapper. */
+  zIndex?: number;
 }
 
 type DragMode =
