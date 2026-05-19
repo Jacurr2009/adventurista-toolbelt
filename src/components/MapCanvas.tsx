@@ -228,22 +228,44 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setZoom(z => Math.max(0.2, Math.min(5, z + delta)));
   }, []);
 
+  // Convert pointer coords to image-space coords
+  const toImgCoords = useCallback((clientX: number, clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - pan.y) / zoom };
+  }, [pan, zoom]);
+
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (draggingToken || obstacleTool) return;
+    // Ruler: start drag-measurement
+    if (rulerActive) {
+      const p = toImgCoords(e.clientX, e.clientY);
+      setRuler({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+      rulerDrawingRef.current = true;
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      return;
+    }
     setIsPanning(true);
     setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [pan, draggingToken, obstacleTool]);
+  }, [pan, draggingToken, obstacleTool, rulerActive, toImgCoords]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (rulerDrawingRef.current && ruler) {
+      const p = toImgCoords(e.clientX, e.clientY);
+      setRuler({ ...ruler, x2: p.x, y2: p.y });
+      return;
+    }
     if (isPanning && !draggingToken) {
       setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     }
-  }, [isPanning, panStart, draggingToken]);
+  }, [isPanning, panStart, draggingToken, ruler, toImgCoords]);
 
   const handlePointerUp = useCallback(() => {
+    rulerDrawingRef.current = false;
     setIsPanning(false);
   }, []);
+
 
   const handleTokenPointerDown = (e: React.PointerEvent, tokenId: string) => {
     if (obstacleTool) return; // Don't grab tokens while drawing obstacles
