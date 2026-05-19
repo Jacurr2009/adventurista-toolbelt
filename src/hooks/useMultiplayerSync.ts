@@ -28,7 +28,7 @@ interface UseMultiplayerSyncOptions {
   onPing?: (x: number, y: number, senderName?: string) => void;
 }
 
-export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, onDamageToken }: UseMultiplayerSyncOptions) {
+export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, onDamageToken, onPing }: UseMultiplayerSyncOptions) {
   const { status, broadcast, onMessage } = useMultiplayer();
   const connected = status === 'hosting' || status === 'connected';
   const lastBroadcastRef = useRef<string>('');
