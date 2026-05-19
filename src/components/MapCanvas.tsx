@@ -98,6 +98,22 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const objectFileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { saveMapObjects(mapId, mapObjects); }, [mapObjects, mapId]);
 
+  // Ruler tool — drag to measure distance
+  const [rulerActive, setRulerActive] = useState(false);
+  const [ruler, setRuler] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const rulerDrawingRef = useRef(false);
+
+  // Ping tool — next tap pings a location (also right-click pings)
+  const [pingMode, setPingMode] = useState(false);
+  const [pings, setPings] = useState<{ id: string; x: number; y: number; name?: string }[]>([]);
+
+  const showPing = useCallback((x: number, y: number, name?: string) => {
+    const id = `ping-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    setPings(prev => [...prev, { id, x, y, name }]);
+    setTimeout(() => setPings(prev => prev.filter(p => p.id !== id)), 2200);
+  }, []);
+
+
   // Fog of war resolution (sub-cells per grid cell)
   const [fogResolution, setFogResolution] = useState<number>(() => {
     const saved = localStorage.getItem(`map-fog-res-${mapId}`);
