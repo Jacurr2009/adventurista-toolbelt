@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   ZoomIn, ZoomOut, RotateCcw, Plus, Trash2, X,
-  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square, DoorOpen, Image as ImageIcon,
+  Grid3X3, Eye, EyeOff, Minus, MousePointer, Slash, Square, DoorOpen, Image as ImageIcon, Ruler, Radio,
 } from 'lucide-react';
 import { useCharacterSync } from '@/lib/CharacterSyncContext';
 import { Character } from '@/lib/types';
@@ -98,6 +98,22 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
   const objectFileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { saveMapObjects(mapId, mapObjects); }, [mapObjects, mapId]);
 
+  // Ruler tool — drag to measure distance
+  const [rulerActive, setRulerActive] = useState(false);
+  const [ruler, setRuler] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const rulerDrawingRef = useRef(false);
+
+  // Ping tool — next tap pings a location (also right-click pings)
+  const [pingMode, setPingMode] = useState(false);
+  const [pings, setPings] = useState<{ id: string; x: number; y: number; name?: string }[]>([]);
+
+  const showPing = useCallback((x: number, y: number, name?: string) => {
+    const id = `ping-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    setPings(prev => [...prev, { id, x, y, name }]);
+    setTimeout(() => setPings(prev => prev.filter(p => p.id !== id)), 2200);
+  }, []);
+
+
   // Fog of war resolution (sub-cells per grid cell)
   const [fogResolution, setFogResolution] = useState<number>(() => {
     const saved = localStorage.getItem(`map-fog-res-${mapId}`);
@@ -142,7 +158,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     if (state.ftPerCell) setFtPerCell(state.ftPerCell);
   }, []);
 
-  const { connected, broadcastState, broadcastTokenMove, broadcastDamage } = useMultiplayerSync({
+  const { connected, broadcastState, broadcastTokenMove, broadcastDamage, broadcastPing } = useMultiplayerSync({
     isHost,
     getState,
     applyState,
@@ -156,6 +172,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         return { ...t, hp: Math.max(0, currentHp - damage) };
       }));
     },
+    onPing: (x, y, name) => showPing(x, y, name),
   });
 
   // Broadcast state when it changes (host only)
@@ -211,22 +228,44 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     setZoom(z => Math.max(0.2, Math.min(5, z + delta)));
   }, []);
 
+  // Convert pointer coords to image-space coords
+  const toImgCoords = useCallback((clientX: number, clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - pan.y) / zoom };
+  }, [pan, zoom]);
+
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (draggingToken || obstacleTool) return;
+    // Ruler: start drag-measurement
+    if (rulerActive) {
+      const p = toImgCoords(e.clientX, e.clientY);
+      setRuler({ x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+      rulerDrawingRef.current = true;
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      return;
+    }
     setIsPanning(true);
     setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [pan, draggingToken, obstacleTool]);
+  }, [pan, draggingToken, obstacleTool, rulerActive, toImgCoords]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (rulerDrawingRef.current && ruler) {
+      const p = toImgCoords(e.clientX, e.clientY);
+      setRuler({ ...ruler, x2: p.x, y2: p.y });
+      return;
+    }
     if (isPanning && !draggingToken) {
       setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     }
-  }, [isPanning, panStart, draggingToken]);
+  }, [isPanning, panStart, draggingToken, ruler, toImgCoords]);
 
   const handlePointerUp = useCallback(() => {
+    rulerDrawingRef.current = false;
     setIsPanning(false);
   }, []);
+
 
   const handleTokenPointerDown = (e: React.PointerEvent, tokenId: string) => {
     if (obstacleTool) return; // Don't grab tokens while drawing obstacles
@@ -308,6 +347,15 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
     const mouseX = (e.clientX - rect.left - pan.x) / zoom;
     const mouseY = (e.clientY - rect.top - pan.y) / zoom;
+
+    // Ping mode — fire a ping and exit mode
+    if (pingMode) {
+      showPing(mouseX, mouseY);
+      if (connected) broadcastPing(mouseX, mouseY);
+      setPingMode(false);
+      return;
+    }
+
 
     // AoE placement mode
     if (aoeState && !aoeState.placedX) {
@@ -529,6 +577,28 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
           <div className="w-px h-5 bg-border mx-1" />
 
+          {/* Ruler & Ping — available to all */}
+          <button
+            onClick={() => { setRulerActive(v => !v); if (rulerActive) setRuler(null); setPingMode(false); }}
+            className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${rulerActive ? 'border-secondary text-secondary' : ''}`}
+            title="Ruler — drag to measure distance"
+          >
+            <Ruler className="w-3 h-3" /> Ruler
+          </button>
+          {ruler && (
+            <button onClick={() => setRuler(null)} className="tactical-card !p-1 px-2 text-[9px]" title="Clear ruler">
+              <X className="w-3 h-3" />
+            </button>
+          )}
+          <button
+            onClick={() => { setPingMode(v => !v); setRulerActive(false); }}
+            className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${pingMode ? 'border-accent text-accent' : ''}`}
+            title="Ping — tap a spot (or right-click) to alert the table"
+          >
+            <Radio className="w-3 h-3" /> Ping
+          </button>
+
+
           {/* Grid toggle */}
           <button
             onClick={() => setShowGrid(!showGrid)}
@@ -696,6 +766,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           className={`flex-1 overflow-hidden relative bg-muted/30 ${
             aoeState && !aoeState.placedX ? 'cursor-crosshair' :
             obstacleTool === 'line' || obstacleTool === 'rect' || obstacleTool === 'opening' ? 'cursor-crosshair' :
+            rulerActive ? 'cursor-crosshair' :
+            pingMode ? 'cursor-cell' :
             combatMoving ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
           }`}
           onWheel={handleWheel}
@@ -703,6 +775,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           onPointerMove={(e) => { handlePointerMove(e); handleTokenPointerMove(e); }}
           onPointerUp={() => { handlePointerUp(); handleTokenPointerUp(); }}
           onClick={handleCanvasClick}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            const p = toImgCoords(e.clientX, e.clientY);
+            showPing(p.x, p.y);
+            if (connected) broadcastPing(p.x, p.y);
+          }}
           onMouseMove={handleCanvasMouseMove}
           style={{ touchAction: 'none' }}
         >
@@ -887,7 +965,74 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                 </div>
               );
             })}
+
+            {/* Ruler overlay */}
+            {ruler && (() => {
+              const dx = ruler.x2 - ruler.x1;
+              const dy = ruler.y2 - ruler.y1;
+              const distPx = Math.hypot(dx, dy);
+              const cells = distPx / gridSize;
+              const feet = Math.round(cells * ftPerCell);
+              const meters = (feet * 0.3048).toFixed(1);
+              const midX = (ruler.x1 + ruler.x2) / 2;
+              const midY = (ruler.y1 + ruler.y2) / 2;
+              return (
+                <svg
+                  className="absolute inset-0 pointer-events-none"
+                  width={imgSize.w}
+                  height={imgSize.h}
+                  style={{ zIndex: 40 }}
+                >
+                  <line
+                    x1={ruler.x1} y1={ruler.y1} x2={ruler.x2} y2={ruler.y2}
+                    stroke="hsl(var(--secondary))"
+                    strokeWidth={2 / zoom}
+                    strokeDasharray={`${6 / zoom} ${4 / zoom}`}
+                  />
+                  <circle cx={ruler.x1} cy={ruler.y1} r={4 / zoom} fill="hsl(var(--secondary))" />
+                  <circle cx={ruler.x2} cy={ruler.y2} r={4 / zoom} fill="hsl(var(--secondary))" />
+                  <g transform={`translate(${midX} ${midY})`}>
+                    <rect
+                      x={-44 / zoom} y={-22 / zoom}
+                      width={88 / zoom} height={20 / zoom}
+                      rx={3 / zoom}
+                      fill="hsl(var(--background))"
+                      stroke="hsl(var(--secondary))"
+                      strokeWidth={1 / zoom}
+                    />
+                    <text
+                      x={0} y={-8 / zoom}
+                      textAnchor="middle"
+                      fontFamily="ui-monospace, monospace"
+                      fontWeight={700}
+                      fontSize={11 / zoom}
+                      fill="hsl(var(--foreground))"
+                    >
+                      {feet}ft · {meters}m · {cells.toFixed(1)}sq
+                    </text>
+                  </g>
+                </svg>
+              );
+            })()}
+
+            {/* Pings */}
+            {pings.map(p => (
+              <div
+                key={p.id}
+                className="absolute pointer-events-none"
+                style={{ left: p.x, top: p.y, zIndex: 45, transform: 'translate(-50%, -50%)' }}
+              >
+                <span className="absolute inset-0 -m-6 rounded-full border-2 border-accent animate-ping" style={{ width: 48, height: 48 }} />
+                <span className="absolute inset-0 -m-3 rounded-full border-2 border-accent" style={{ width: 24, height: 24 }} />
+                {p.name && (
+                  <span className="absolute left-1/2 -translate-x-1/2 top-6 text-[10px] font-mono font-bold text-accent bg-background/80 px-1 rounded whitespace-nowrap">
+                    {p.name}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
+
         </div>
 
         {/* Token list bar */}

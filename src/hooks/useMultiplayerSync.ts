@@ -25,9 +25,10 @@ interface UseMultiplayerSyncOptions {
   applyState: (state: Partial<MapSyncState>) => void;
   onTokenMove?: (tokenId: string, x: number, y: number, senderId?: string) => void;
   onDamageToken?: (tokenId: string, damage: number) => void;
+  onPing?: (x: number, y: number, senderName?: string) => void;
 }
 
-export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, onDamageToken }: UseMultiplayerSyncOptions) {
+export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, onDamageToken, onPing }: UseMultiplayerSyncOptions) {
   const { status, broadcast, onMessage } = useMultiplayer();
   const connected = status === 'hosting' || status === 'connected';
   const lastBroadcastRef = useRef<string>('');
@@ -56,6 +57,11 @@ export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, 
   const broadcastCombatAction = useCallback((action: string, data?: any) => {
     if (!connected) return;
     broadcast({ type: 'combat-action', payload: { action, ...data } });
+  }, [connected, broadcast]);
+
+  const broadcastPing = useCallback((x: number, y: number) => {
+    if (!connected) return;
+    broadcast({ type: 'ping', payload: { x, y } });
   }, [connected, broadcast]);
 
   // Listen for messages
@@ -87,11 +93,16 @@ export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, 
         case 'combat-action':
           // Host receives player combat actions
           break;
+        case 'ping':
+          if (msg.payload && typeof msg.payload.x === 'number') {
+            onPing?.(msg.payload.x, msg.payload.y, msg.senderName);
+          }
+          break;
       }
     });
 
     return unsub;
-  }, [connected, isHost, onMessage, applyState, broadcastState, onTokenMove, onDamageToken]);
+  }, [connected, isHost, onMessage, applyState, broadcastState, onTokenMove, onDamageToken, onPing]);
 
   return {
     connected,
@@ -99,5 +110,6 @@ export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, 
     broadcastTokenMove,
     broadcastDamage,
     broadcastCombatAction,
+    broadcastPing,
   };
 }
