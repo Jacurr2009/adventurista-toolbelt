@@ -158,7 +158,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     if (state.ftPerCell) setFtPerCell(state.ftPerCell);
   }, []);
 
-  const { connected, broadcastState, broadcastTokenMove, broadcastDamage } = useMultiplayerSync({
+  const { connected, broadcastState, broadcastTokenMove, broadcastDamage, broadcastPing } = useMultiplayerSync({
     isHost,
     getState,
     applyState,
@@ -172,6 +172,7 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
         return { ...t, hp: Math.max(0, currentHp - damage) };
       }));
     },
+    onPing: (x, y, name) => showPing(x, y, name),
   });
 
   // Broadcast state when it changes (host only)
