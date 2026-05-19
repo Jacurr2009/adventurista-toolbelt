@@ -25,6 +25,7 @@ interface UseMultiplayerSyncOptions {
   applyState: (state: Partial<MapSyncState>) => void;
   onTokenMove?: (tokenId: string, x: number, y: number, senderId?: string) => void;
   onDamageToken?: (tokenId: string, damage: number) => void;
+  onPing?: (x: number, y: number, senderName?: string) => void;
 }
 
 export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, onDamageToken }: UseMultiplayerSyncOptions) {
