@@ -744,6 +744,8 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           className={`flex-1 overflow-hidden relative bg-muted/30 ${
             aoeState && !aoeState.placedX ? 'cursor-crosshair' :
             obstacleTool === 'line' || obstacleTool === 'rect' || obstacleTool === 'opening' ? 'cursor-crosshair' :
+            rulerActive ? 'cursor-crosshair' :
+            pingMode ? 'cursor-cell' :
             combatMoving ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'
           }`}
           onWheel={handleWheel}
@@ -751,6 +753,12 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
           onPointerMove={(e) => { handlePointerMove(e); handleTokenPointerMove(e); }}
           onPointerUp={() => { handlePointerUp(); handleTokenPointerUp(); }}
           onClick={handleCanvasClick}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            const p = toImgCoords(e.clientX, e.clientY);
+            showPing(p.x, p.y);
+            if (connected) broadcastPing(p.x, p.y);
+          }}
           onMouseMove={handleCanvasMouseMove}
           style={{ touchAction: 'none' }}
         >
