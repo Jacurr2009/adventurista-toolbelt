@@ -577,6 +577,28 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
 
           <div className="w-px h-5 bg-border mx-1" />
 
+          {/* Ruler & Ping — available to all */}
+          <button
+            onClick={() => { setRulerActive(v => !v); if (rulerActive) setRuler(null); setPingMode(false); }}
+            className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${rulerActive ? 'border-secondary text-secondary' : ''}`}
+            title="Ruler — drag to measure distance"
+          >
+            <Ruler className="w-3 h-3" /> Ruler
+          </button>
+          {ruler && (
+            <button onClick={() => setRuler(null)} className="tactical-card !p-1 px-2 text-[9px]" title="Clear ruler">
+              <X className="w-3 h-3" />
+            </button>
+          )}
+          <button
+            onClick={() => { setPingMode(v => !v); setRulerActive(false); }}
+            className={`tactical-card !p-1 px-2 flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold ${pingMode ? 'border-accent text-accent' : ''}`}
+            title="Ping — tap a spot (or right-click) to alert the table"
+          >
+            <Radio className="w-3 h-3" /> Ping
+          </button>
+
+
           {/* Grid toggle */}
           <button
             onClick={() => setShowGrid(!showGrid)}
