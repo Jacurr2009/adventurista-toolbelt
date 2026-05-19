@@ -965,7 +965,74 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
                 </div>
               );
             })}
+
+            {/* Ruler overlay */}
+            {ruler && (() => {
+              const dx = ruler.x2 - ruler.x1;
+              const dy = ruler.y2 - ruler.y1;
+              const distPx = Math.hypot(dx, dy);
+              const cells = distPx / gridSize;
+              const feet = Math.round(cells * ftPerCell);
+              const meters = (feet * 0.3048).toFixed(1);
+              const midX = (ruler.x1 + ruler.x2) / 2;
+              const midY = (ruler.y1 + ruler.y2) / 2;
+              return (
+                <svg
+                  className="absolute inset-0 pointer-events-none"
+                  width={imgSize.w}
+                  height={imgSize.h}
+                  style={{ zIndex: 40 }}
+                >
+                  <line
+                    x1={ruler.x1} y1={ruler.y1} x2={ruler.x2} y2={ruler.y2}
+                    stroke="hsl(var(--secondary))"
+                    strokeWidth={2 / zoom}
+                    strokeDasharray={`${6 / zoom} ${4 / zoom}`}
+                  />
+                  <circle cx={ruler.x1} cy={ruler.y1} r={4 / zoom} fill="hsl(var(--secondary))" />
+                  <circle cx={ruler.x2} cy={ruler.y2} r={4 / zoom} fill="hsl(var(--secondary))" />
+                  <g transform={`translate(${midX} ${midY})`}>
+                    <rect
+                      x={-44 / zoom} y={-22 / zoom}
+                      width={88 / zoom} height={20 / zoom}
+                      rx={3 / zoom}
+                      fill="hsl(var(--background))"
+                      stroke="hsl(var(--secondary))"
+                      strokeWidth={1 / zoom}
+                    />
+                    <text
+                      x={0} y={-8 / zoom}
+                      textAnchor="middle"
+                      fontFamily="ui-monospace, monospace"
+                      fontWeight={700}
+                      fontSize={11 / zoom}
+                      fill="hsl(var(--foreground))"
+                    >
+                      {feet}ft · {meters}m · {cells.toFixed(1)}sq
+                    </text>
+                  </g>
+                </svg>
+              );
+            })()}
+
+            {/* Pings */}
+            {pings.map(p => (
+              <div
+                key={p.id}
+                className="absolute pointer-events-none"
+                style={{ left: p.x, top: p.y, zIndex: 45, transform: 'translate(-50%, -50%)' }}
+              >
+                <span className="absolute inset-0 -m-6 rounded-full border-2 border-accent animate-ping" style={{ width: 48, height: 48 }} />
+                <span className="absolute inset-0 -m-3 rounded-full border-2 border-accent" style={{ width: 24, height: 24 }} />
+                {p.name && (
+                  <span className="absolute left-1/2 -translate-x-1/2 top-6 text-[10px] font-mono font-bold text-accent bg-background/80 px-1 rounded whitespace-nowrap">
+                    {p.name}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
+
         </div>
 
         {/* Token list bar */}
