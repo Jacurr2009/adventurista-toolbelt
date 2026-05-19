@@ -348,6 +348,15 @@ export function MapCanvas({ mapImage, mapId }: MapCanvasProps) {
     const mouseX = (e.clientX - rect.left - pan.x) / zoom;
     const mouseY = (e.clientY - rect.top - pan.y) / zoom;
 
+    // Ping mode — fire a ping and exit mode
+    if (pingMode) {
+      showPing(mouseX, mouseY);
+      if (connected) broadcastPing(mouseX, mouseY);
+      setPingMode(false);
+      return;
+    }
+
+
     // AoE placement mode
     if (aoeState && !aoeState.placedX) {
       let px = mouseX;
