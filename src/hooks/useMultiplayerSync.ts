@@ -93,11 +93,16 @@ export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, 
         case 'combat-action':
           // Host receives player combat actions
           break;
+        case 'ping':
+          if (msg.payload && typeof msg.payload.x === 'number') {
+            onPing?.(msg.payload.x, msg.payload.y, msg.senderName);
+          }
+          break;
       }
     });
 
     return unsub;
-  }, [connected, isHost, onMessage, applyState, broadcastState, onTokenMove, onDamageToken]);
+  }, [connected, isHost, onMessage, applyState, broadcastState, onTokenMove, onDamageToken, onPing]);
 
   return {
     connected,
@@ -105,5 +110,6 @@ export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, 
     broadcastTokenMove,
     broadcastDamage,
     broadcastCombatAction,
+    broadcastPing,
   };
 }
