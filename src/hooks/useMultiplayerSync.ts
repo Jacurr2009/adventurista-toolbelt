@@ -59,6 +59,11 @@ export function useMultiplayerSync({ isHost, getState, applyState, onTokenMove, 
     broadcast({ type: 'combat-action', payload: { action, ...data } });
   }, [connected, broadcast]);
 
+  const broadcastPing = useCallback((x: number, y: number) => {
+    if (!connected) return;
+    broadcast({ type: 'ping', payload: { x, y } });
+  }, [connected, broadcast]);
+
   // Listen for messages
   useEffect(() => {
     if (!connected) return;
