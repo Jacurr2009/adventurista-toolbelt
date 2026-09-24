@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, BookOpen, Menu, X, Dices, Map, Shield, Eye } from 'lucide-react';
+import { Users, Plus, BookOpen, Menu, X, Dices, Map, Shield, Eye, Crosshair } from 'lucide-react';
 import { useGame } from '@/lib/GameContext';
 import { MultiplayerPanel } from '@/components/MultiplayerPanel';
 
@@ -15,6 +15,7 @@ export function AppSidebar() {
     { to: '/create', label: 'NEW BUILD', icon: Plus },
     { to: '/dice', label: 'DICE ROLLER', icon: Dices },
     { to: '/maps', label: 'MAPS', icon: Map },
+    { to: '/killteam', label: 'KILL TEAM', icon: Crosshair },
     { to: '/resources', label: 'RESOURCES', icon: BookOpen },
   ];
 
