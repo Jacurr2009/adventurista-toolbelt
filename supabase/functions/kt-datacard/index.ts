@@ -115,6 +115,7 @@ Deno.serve(async (request) => {
     });
 
     const operative = await result.experimental_output;
+    console.log("extracted:", JSON.stringify(operative)?.slice(0, 2000));
     if (!operative || !operative.name) {
       return jsonResponse({ error: "Couldn't read a datacard in that photo — try a sharper, closer shot." }, 422);
     }
