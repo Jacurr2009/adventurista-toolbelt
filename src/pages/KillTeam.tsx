@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, RotateCcw, ChevronRight, Skull, Heart, Minus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Trash2, RotateCcw, ChevronRight, Skull, Heart, Minus, ScanLine, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   KTTeam, KTGameState, KTOperative, KTOperativeState, KTWeapon,
-  loadTeams, saveTeams, loadGame, saveGame, emptyGame, newOperative, newWeapon, starterTeams,
+  loadTeams, saveTeams, loadGame, saveGame, emptyGame, newOperative, newWeapon, starterTeams, newId,
 } from '@/lib/killteam';
 import { KTDice } from '@/components/KTDice';
 
@@ -196,6 +198,66 @@ function NumIn({ label, value, onChange }: { label: string; value: number; onCha
   );
 }
 
+/* ---------------- Datacard AI scan ---------------- */
+interface ExtractedOperative {
+  name: string; faction: 'Tau' | 'Kroot' | 'Other';
+  apl: number; move: number; save: number; wounds: number;
+  weapons: { name: string; melee: boolean; attacks: number; hit: number; normalDmg: number; critDmg: number; rules: string }[];
+  abilities: string;
+}
+
+async function fileToDataUrl(file: File, maxDim = 1400): Promise<string> {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+function DatacardScan({ onAdd }: { onAdd: (op: KTOperative) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  const handleFile = async (file: File) => {
+    setBusy(true);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const { data, error } = await supabase.functions.invoke('kt-datacard', { body: { image: dataUrl } });
+      if (error) throw new Error(data?.error ?? error.message);
+      if (data?.error) throw new Error(data.error);
+      const ex = data.operative as ExtractedOperative;
+      const op: KTOperative = {
+        id: newId(), name: ex.name || 'Scanned Operative',
+        faction: ex.faction ?? 'Other',
+        apl: ex.apl ?? 2, move: ex.move ?? 6, save: ex.save ?? 5, wounds: ex.wounds ?? 7,
+        weapons: (ex.weapons ?? []).map(w => ({ ...w, id: newId() })),
+        abilities: ex.abilities ?? '',
+      };
+      onAdd(op);
+      toast.success(`Scanned "${op.name}" — check the stats below and fix anything off.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Scan failed — try a clearer photo.');
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+      <button disabled={busy} onClick={() => inputRef.current?.click()}
+        className="tactical-card !py-2 !px-3 text-[10px] uppercase tracking-widest font-bold flex items-center gap-1 disabled:opacity-50">
+        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <ScanLine className="w-3 h-3" />}
+        {busy ? 'Scanning…' : 'Scan datacard'}
+      </button>
+    </>
+  );
+}
+
 function Rosters({ teams, setTeams }: { teams: KTTeam[]; setTeams: (t: KTTeam[]) => void }) {
   const [sel, setSel] = useState(teams[0]?.id);
   const team = useMemo(() => teams.find(t => t.id === sel), [teams, sel]);
@@ -212,6 +274,7 @@ function Rosters({ teams, setTeams }: { teams: KTTeam[]; setTeams: (t: KTTeam[])
         </select>
         <button onClick={() => { const id = `team-${Date.now()}`; setTeams([...teams, { id, name: 'New Kill Team', operatives: [] }]); setSel(id); }}
           className="tactical-card !py-2 !px-3 text-[10px] uppercase tracking-widest font-bold flex items-center gap-1"><Plus className="w-3 h-3" /> Team</button>
+        <DatacardScan onAdd={op => team && updTeam({ operatives: [...team.operatives, op] })} />
         <button onClick={() => { if (confirm('Restore starter Tau & Kroot rosters? Your edits will be lost.')) { const s = starterTeams(); setTeams(s); setSel(s[0].id); } }}
           className="tactical-card !py-2 !px-3 text-[10px] uppercase tracking-widest font-bold flex items-center gap-1"><RotateCcw className="w-3 h-3" /> Reset starters</button>
       </div>
