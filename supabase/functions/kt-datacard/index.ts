@@ -1,10 +1,6 @@
-import { createOpenAI } from "npm:@ai-sdk/openai@2";
-import { streamText, Output, jsonSchema, type ModelMessage } from "npm:ai@5";
-
 import {
   createLovableAiGatewayRunIdFetch,
   getLovableAiGatewayRunId,
-  getLovableAiGatewayResponseHeaders,
 } from "../_shared/run-id.ts";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1";
@@ -15,7 +11,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const operativeSchema = jsonSchema({
+const operativeSchema = {
   type: "object",
   additionalProperties: false,
   required: ["name", "faction", "apl", "move", "save", "wounds", "weapons", "abilities"],
@@ -45,7 +41,7 @@ const operativeSchema = jsonSchema({
     },
     abilities: { type: "string", description: "All abilities and unique actions text, joined. Empty string if none." },
   },
-});
+};
 
 const INSTRUCTIONS =
   "You extract Warhammer 40,000 Kill Team operative datacards from photos. " +
@@ -54,10 +50,11 @@ const INSTRUCTIONS =
   "Include every weapon profile with its attacks (A), hit (BS/WS), damage (normal/critical) and special rules. " +
   "If a value is illegible, make your best estimate from context. Never invent weapons that are not on the card.";
 
-function jsonResponse(body: unknown, status = 200, extra?: Headers) {
-  const headers = new Headers({ ...corsHeaders, "Content-Type": "application/json" });
-  if (extra) extra.forEach((v, k) => headers.set(k, v));
-  return new Response(JSON.stringify(body), { status, headers });
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (request) => {
@@ -80,57 +77,118 @@ Deno.serve(async (request) => {
     }
 
     const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
-    const provider = createOpenAI({
-      baseURL: GATEWAY_URL,
-      apiKey,
-      headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-      fetch: runIdFetch.fetch,
-    });
 
-    const messages: ModelMessage[] = [
-      {
-        role: "user",
-        content: [
-          { type: "image", image: new URL(image) },
-          { type: "text", text: "Extract this Kill Team operative datacard." },
-        ],
+    const upstream = await runIdFetch.fetch(`${GATEWAY_URL}/responses`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": apiKey,
+        "X-Lovable-AIG-SDK": "fetch",
       },
-    ];
-
-    const result = streamText({
-      model: provider.responses(MODEL),
-      instructions: INSTRUCTIONS,
-      messages,
-      abortSignal: request.signal,
-      experimental_output: Output.object({ schema: operativeSchema }),
-      providerOptions: {
-        openai: {
-          store: false,
-          forceReasoning: true,
-          reasoningEffort: "low",
-          reasoningSummary: "auto",
-          include: ["reasoning.encrypted_content"],
+      signal: request.signal,
+      body: JSON.stringify({
+        model: MODEL,
+        stream: true,
+        store: false,
+        instructions: INSTRUCTIONS,
+        reasoning: { effort: "low", summary: "auto" },
+        text: {
+          format: {
+            type: "json_schema",
+            name: "kt_operative",
+            strict: true,
+            schema: operativeSchema,
+          },
         },
-      },
+        input: [
+          {
+            role: "user",
+            content: [
+              { type: "input_text", text: "Extract this Kill Team operative datacard." },
+              { type: "input_image", image_url: image },
+            ],
+          },
+        ],
+      }),
     });
 
-    const operative = await result.experimental_output;
-    console.log("extracted:", JSON.stringify(operative)?.slice(0, 2000));
-    if (!operative || !operative.name) {
+    if (!upstream.ok || !upstream.body) {
+      const errText = await upstream.text().catch(() => "");
+      console.error("gateway error", upstream.status, errText.slice(0, 500));
+      if (upstream.status === 402 || upstream.status === 403) {
+        return jsonResponse({ error: "AI extraction is unavailable right now (credits or access). Try again later." }, upstream.status);
+      }
+      if (upstream.status === 429) {
+        return jsonResponse({ error: "AI is busy right now — wait a moment and try again." }, 429);
+      }
+      return jsonResponse({ error: "Couldn't extract the datacard. Try a clearer photo." }, 502);
+    }
+
+    // Consume the SSE stream and accumulate the structured output text.
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let outputText = "";
+    let streamError = "";
+
+    const handleEvent = (raw: string) => {
+      const dataLines = raw.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim());
+      if (!dataLines.length) return;
+      const payload = dataLines.join("\n");
+      if (payload === "[DONE]") return;
+      try {
+        const evt = JSON.parse(payload);
+        if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
+          outputText += evt.delta;
+        } else if (evt.type === "response.failed" || evt.type === "error") {
+          streamError = JSON.stringify(evt).slice(0, 500);
+        } else if (evt.type === "response.completed" && !outputText) {
+          const out = evt.response?.output;
+          if (Array.isArray(out)) {
+            for (const item of out) {
+              if (item?.type === "message" && Array.isArray(item.content)) {
+                for (const c of item.content) {
+                  if (c?.type === "output_text" && typeof c.text === "string") outputText += c.text;
+                }
+              }
+            }
+          }
+        }
+      } catch { /* ignore partial JSON chunks */ }
+    };
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+        handleEvent(buffer.slice(0, idx));
+        buffer = buffer.slice(idx + 2);
+      }
+    }
+    if (buffer.trim()) handleEvent(buffer);
+
+    if (streamError) {
+      console.error("stream error:", streamError);
+      return jsonResponse({ error: "Couldn't extract the datacard. Try a clearer photo." }, 502);
+    }
+
+    let operative: Record<string, unknown> | null = null;
+    try {
+      operative = outputText ? JSON.parse(outputText) : null;
+    } catch {
+      operative = null;
+    }
+    console.log("extracted:", outputText.slice(0, 1500));
+
+    if (!operative || typeof operative.name !== "string" || !operative.name) {
       return jsonResponse({ error: "Couldn't read a datacard in that photo — try a sharper, closer shot." }, 422);
     }
 
-    return jsonResponse(
-      { operative },
-      200,
-      getLovableAiGatewayResponseHeaders(undefined, corsHeaders && new Headers(corsHeaders)),
-    );
+    return jsonResponse({ operative });
   } catch (error) {
-    const status = (error as { statusCode?: number })?.statusCode;
     const message = error instanceof Error ? error.message : "Extraction failed";
-    if (status === 402 || status === 403) {
-      return jsonResponse({ error: "AI extraction is unavailable right now (credits or access). Try again later." }, status);
-    }
     console.error("kt-datacard error:", message);
     return jsonResponse({ error: "Couldn't extract the datacard. Try a clearer photo." }, 500);
   }
