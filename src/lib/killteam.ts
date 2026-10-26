@@ -52,6 +52,38 @@ const w = (name: string, melee: boolean, attacks: number, hit: number, nd: numbe
   ({ id: uid(), name, melee, attacks, hit, normalDmg: nd, critDmg: cd, rules });
 
 // Starter values — approximate, edit to match your current datacards.
+const killBroker = (): KTOperative => ({
+  id: uid(), name: 'Kill-broker', faction: 'Kroot', apl: 3, move: 7, save: 5, wounds: 10,
+  weapons: [w('Kroot rifle', false, 4, 3, 3, 4, 'Balanced'), w('Ritual blade', true, 4, 3, 3, 5, 'Lethal 5+')],
+  abilities: 'Leader. Grants extra CP abilities.',
+});
+const krootHound = (): KTOperative => ({
+  id: uid(), name: 'Kroot Hound', faction: 'Kroot', apl: 2, move: 8, save: 6, wounds: 7,
+  weapons: [w('Ripping fangs', true, 4, 3, 3, 4, 'Rending')],
+  abilities: 'Beast. Can\'t perform mission actions.',
+});
+const krootStalker = (): KTOperative => ({
+  id: uid(), name: 'Kroot Stalker', faction: 'Kroot', apl: 2, move: 7, save: 5, wounds: 8,
+  weapons: [w('Kroot rifle', false, 4, 4, 3, 4), w('Blades', true, 4, 3, 3, 4, 'Lethal 5+')],
+  abilities: '',
+});
+const krootLongSight = (): KTOperative => ({
+  id: uid(), name: 'Kroot Long-sight', faction: 'Kroot', apl: 2, move: 7, save: 5, wounds: 8,
+  weapons: [w('Kroot hunting rifle', false, 4, 3, 3, 3, 'Heavy, Lethal 5+, Piercing 1'), w('Fists', true, 3, 4, 2, 3)],
+  abilities: '',
+});
+const krootWarrior = (): KTOperative => ({
+  id: uid(), name: 'Kroot Warrior', faction: 'Kroot', apl: 2, move: 7, save: 5, wounds: 8,
+  weapons: [w('Kroot rifle', false, 4, 4, 3, 4), w('Rifle butt', true, 3, 4, 2, 3)],
+  abilities: '',
+});
+
+/** The five unique operative types a Farstalker Kinband is built from. */
+const kinbandCore = (): KTOperative[] => [killBroker(), krootHound(), krootStalker(), krootLongSight(), krootWarrior()];
+
+/** Extra operatives that bring a kinband up to a full 12-unit kill team. */
+const kinbandExtras = (): KTOperative[] => [krootStalker(), krootStalker(), krootStalker(), krootLongSight(), krootLongSight(), krootWarrior(), krootWarrior()];
+
 export function starterTeams(): KTTeam[] {
   return [
     {
@@ -73,24 +105,31 @@ export function starterTeams(): KTTeam[] {
     {
       id: 'farstalker-kinband',
       name: 'Farstalker Kinband (Kroot)',
-      operatives: [
-        { id: uid(), name: 'Kill-broker', faction: 'Kroot', apl: 3, move: 7, save: 5, wounds: 10,
-          weapons: [w('Kroot rifle', false, 4, 3, 3, 4, 'Balanced'), w('Ritual blade', true, 4, 3, 3, 5, 'Lethal 5+')], abilities: 'Leader. Grants extra CP abilities.' },
-        { id: uid(), name: 'Kroot Hound', faction: 'Kroot', apl: 2, move: 8, save: 6, wounds: 7,
-          weapons: [w('Ripping fangs', true, 4, 3, 3, 4, 'Rending')], abilities: 'Beast. Can\'t perform mission actions.' },
-        { id: uid(), name: 'Kroot Stalker', faction: 'Kroot', apl: 2, move: 7, save: 5, wounds: 8,
-          weapons: [w('Kroot rifle', false, 4, 4, 3, 4), w('Blades', true, 4, 3, 3, 4, 'Lethal 5+')], abilities: '' },
-        { id: uid(), name: 'Kroot Long-sight', faction: 'Kroot', apl: 2, move: 7, save: 5, wounds: 8,
-          weapons: [w('Kroot hunting rifle', false, 4, 3, 3, 3, 'Heavy, Lethal 5+, Piercing 1'), w('Fists', true, 3, 4, 2, 3)], abilities: '' },
-        { id: uid(), name: 'Kroot Warrior', faction: 'Kroot', apl: 2, move: 7, save: 5, wounds: 8,
-          weapons: [w('Kroot rifle', false, 4, 4, 3, 4), w('Rifle butt', true, 3, 4, 2, 3)], abilities: '' },
-      ],
+      operatives: [...kinbandCore(), ...kinbandExtras()],
     },
   ];
 }
 
 const TEAMS_KEY = 'kt-teams';
 const GAME_KEY = 'kt-game';
+
+/**
+ * Rosters saved before the kinband was expanded to 12 operatives are topped up in place.
+ * Only fires when the saved kinband is still the untouched 5-operative starter list, so
+ * edited rosters are never touched, and existing ids are kept so a game in progress keeps
+ * tracking the operatives it already knows.
+ */
+export function topUpKinband(teams: KTTeam[]): KTTeam[] {
+  const core = kinbandCore();
+  return teams.map(t => {
+    if (t.id !== 'farstalker-kinband' || t.operatives.length !== core.length) return t;
+    const untouched = t.operatives.every((o, i) =>
+      o.name === core[i].name && o.apl === core[i].apl && o.move === core[i].move &&
+      o.save === core[i].save && o.wounds === core[i].wounds);
+    if (!untouched) return t;
+    return { ...t, operatives: [...t.operatives, ...kinbandExtras()] };
+  });
+}
 
 export function loadTeams(): KTTeam[] {
   try {
@@ -102,7 +141,7 @@ export function loadTeams(): KTTeam[] {
         Array.isArray(parsed) && parsed.length > 0 &&
         parsed.every(t => t && typeof t.id === 'string' && typeof t.name === 'string' && Array.isArray(t.operatives))
       ) {
-        return parsed;
+        return topUpKinband(parsed);
       }
     }
   } catch { /* ignore */ }
