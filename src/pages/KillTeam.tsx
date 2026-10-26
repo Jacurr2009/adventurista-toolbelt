@@ -260,7 +260,7 @@ function DatacardScan({ onAdd }: { onAdd: (op: KTOperative) => void }) {
 
 function Rosters({ teams, setTeams }: { teams: KTTeam[]; setTeams: (t: KTTeam[]) => void }) {
   const [sel, setSel] = useState(teams[0]?.id);
-  const team = useMemo(() => teams.find(t => t.id === sel), [teams, sel]);
+  const team = useMemo(() => teams.find(t => t.id === sel) ?? teams[0], [teams, sel]);
 
   const updTeam = (patch: Partial<KTTeam>) => setTeams(teams.map(t => t.id === sel ? { ...t, ...patch } : t));
   const updOp = (id: string, patch: Partial<KTOperative>) => team && updTeam({ operatives: team.operatives.map(o => o.id === id ? { ...o, ...patch } : o) });
