@@ -95,7 +95,16 @@ const GAME_KEY = 'kt-game';
 export function loadTeams(): KTTeam[] {
   try {
     const raw = localStorage.getItem(TEAMS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Validate: must be a non-empty array of teams, each with an operatives array.
+      if (
+        Array.isArray(parsed) && parsed.length > 0 &&
+        parsed.every(t => t && typeof t.id === 'string' && typeof t.name === 'string' && Array.isArray(t.operatives))
+      ) {
+        return parsed;
+      }
+    }
   } catch { /* ignore */ }
   const t = starterTeams();
   saveTeams(t);
